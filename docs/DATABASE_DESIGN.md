@@ -85,6 +85,10 @@ erDiagram
 | Integrations (P4) | `api_keys` | Name, prefix, SHA-256 hash, read-only, last used, revoked | **`uq key_hash`** |
 | Integrations (P4) | `webhook_endpoints` | URL, events, secret version (secret derived, not stored), active, failure streak | `ix business_id` |
 | Integrations (P4) | `webhook_deliveries` | Event, payload, status, attempts, response status, last error | `ix endpoint_id`, `ix created_at` |
+| Presence (P5) | `presence_kits` | Brand, social kit, Google pack, SEO profile (JSON), rendered image keys per version, checklist | **`uq business_id`** |
+| Presence (P5) | `custom_domains` | Domain (punycode), status, verification token, serve-website flag, last check | **`uq domain`**, `ix business_id` |
+| Presence (P5) | `mail_domains` | Mail server domain ref, cached DNS records, status, missing records | **`uq domain_id`** |
+| Presence (P5) | `mailboxes` | Local part, kind (mailbox/forward), forward targets, quota, mail server ref (no passwords) | **`uq (mail_domain_id, local_part)`** |
 | Factory (P2) | `ai_generations` | Every model call: content cache + token/latency/acceptance ledger | `uq cache_key`, `ix task`, `ix created_at` |
 
 The doc 15 sketches (`businesses`, `websites`, `claims`, `customers`, `outreach_events`) are all present

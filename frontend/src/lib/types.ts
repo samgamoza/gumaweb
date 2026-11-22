@@ -326,3 +326,17 @@ export interface PresenceKit {
   assets: PresenceAsset[]; social: { bios: Record<string, string>; hashtags: string[]; posts: PresencePost[] };
   google: GooglePack | null; seo: SeoProfile | null; checklist: Record<string, string>;
 }
+
+export interface DnsRecordRow { type: string; name: string; value: string; purpose: string; priority?: number; required?: boolean }
+
+export interface MailSummary {
+  status: "dns_pending" | "active" | "suspended"; dns_missing: string[]; dns_checked_at: string | null;
+  addresses: { id: string; address: string; kind: "mailbox" | "forward"; display_name: string | null; forward_to: string[] }[];
+  client_settings: { incoming: string; outgoing: string; username: string };
+}
+
+export interface CustomDomainRow {
+  id: string; domain: string; status: "pending" | "verified" | "failed"; serve_website: boolean;
+  verified_at: string | null; last_checked_at: string | null; last_error: string | null;
+  records: DnsRecordRow[]; email: MailSummary | null;
+}

@@ -77,3 +77,86 @@ def make_png(width: int = 2, height: int = 2) -> bytes:
     raw = b"".join(b"\x00" + b"\xff\x00\x00" * width for _ in range(height))
     return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
             + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
+
+
+class FakeDns:
+    """In-memory DNS: tests set records; `fail=True` simulates an unreachable resolver."""
+
+    def __init__(self) -> None:
+        self.records: dict[tuple[str, str], list] = {}
+        self.fail = False
+
+    def set(self, rtype: str, name: str, values: list) -> None:
+        self.records[(rtype, name.lower())] = values
+
+    def _get(self, rtype: str, name: str) -> list:
+        if self.fail:
+            import dns.exception
+
+            raise dns.exception.Timeout()
+        return list(self.records.get((rtype, name.lower()), []))
+
+    def txt(self, name: str) -> list[str]:
+        return self._get("TXT", name)
+
+    def mx(self, name: str) -> list[tuple[int, str]]:
+        return self._get("MX", name)
+
+    def cname(self, name: str) -> list[str]:
+        return self._get("CNAME", name)
+
+    def a(self, name: str) -> list[str]:
+        return self._get("A", name)
+
+
+class FakeMailProvider:
+    """In-memory mail server with Stalwart's observable behaviour (zone file, duplicate addresses)."""
+
+    name = "fake"
+
+    def __init__(self) -> None:
+        self.domains: dict[str, str] = {}
+        self.accounts: dict[str, dict] = {}
+        self.forwards: dict[str, dict] = {}
+        self._n = 0
+
+    def _id(self) -> str:
+        self._n += 1
+        return f"x{self._n}"
+
+    def ensure_domain(self, domain: str) -> str:
+        for ref, name in self.domains.items():
+            if name == domain:
+                return ref
+        ref = self._id()
+        self.domains[ref] = domain
+        return ref
+
+    def zone(self, domain_ref: str) -> str:
+        d = self.domains[domain_ref]
+        return (f'v1-rsa-20261122._domainkey.{d}. IN TXT "v=DKIM1; k=rsa; h=sha256; p=MIIBIjAN" "BgkqhkiG9w0"\n'
+                f'{d}. IN TXT "v=spf1 mx -all"\n{d}. IN MX 10 mail.gumaweb.test.\n'
+                f'_dmarc.{d}. IN TXT "v=DMARC1; p=reject; rua=mailto:postmaster@{d}"\n'
+                f"autoconfig.{d}. IN CNAME mail.gumaweb.test.\n")
+
+    def delete_domain(self, domain_ref: str) -> None:
+        self.domains.pop(domain_ref, None)
+
+    def create_mailbox(self, domain_ref, local_part, display_name, password, quota_mb) -> str:
+        ref = self._id()
+        self.accounts[ref] = {"domain": domain_ref, "local": local_part, "password": password, "quota": quota_mb}
+        return ref
+
+    def set_password(self, mailbox_ref: str, password: str) -> None:
+        self.accounts[mailbox_ref]["password"] = password
+
+    def delete_mailbox(self, mailbox_ref: str) -> None:
+        self.accounts.pop(mailbox_ref, None)
+
+    def create_forward(self, domain_ref, local_part, targets) -> str:
+        ref = self._id()
+        self.forwards[ref] = {"domain": domain_ref, "local": local_part, "targets": targets}
+        return ref
+
+    def delete_forward(self, forward_ref: str) -> None:
+        self.forwards.pop(forward_ref, None)

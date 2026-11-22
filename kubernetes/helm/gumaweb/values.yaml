@@ -24,6 +24,13 @@ config:
   llmPrimaryModel: Qwen/Qwen2.5-14B-Instruct
   llmSecondaryModel: Qwen/Qwen2.5-14B-Instruct   # point at a DeepSeek deployment to split review
   aiReviewEnabled: true
+  # Phase 5: custom domains (Caddy on-demand TLS edge) and business email (self-hosted Stalwart)
+  customDomainCnameTarget: domains.gumaweb.io
+  customDomainIpv4: ""
+  mailProvider: disabled        # stalwart after running `python -m app.cli mail-bootstrap`
+  stalwartUrl: http://stalwart:8080
+  stalwartUsername: admin
+  mailClientHost: mail.gumaweb.io
   imageBackend: procedural       # procedural | http (FLUX/SDXL behind /images/generations)
   imageApiUrl: http://image-gen.guma-ai.svc.cluster.local:8000/v1
   imageModel: black-forest-labs/FLUX.1-schnell
@@ -39,6 +46,7 @@ secrets:
   smtpUser: ""
   smtpPassword: ""
   voiceGatewayToken: ""   # Phase 4 telephony gateway shared secret; empty disables /api/v1/voice/*
+  stalwartSecret: ""      # Phase 5 mail server admin secret (printed once by mail-bootstrap)
   firstAdminEmail: admin@gumaweb.io
   firstAdminPassword: ""
 

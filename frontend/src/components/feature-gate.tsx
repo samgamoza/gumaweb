@@ -6,6 +6,7 @@ import { ApiError, api } from "@/lib/api";
 import type { FeatureAccess } from "@/lib/types";
 
 const UPSELL: Record<string, { plan: string; label: string; pitch: string }> = {
+  custom_domain: { plan: "professional", label: "Professional", pitch: "Put your website on your own domain and get matching email addresses like info@yourbusiness.ph." },
   crm: { plan: "business", label: "Business Plus", pitch: "Every inquiry from your website, bookings and chat, in one simple pipeline." },
   booking: { plan: "business", label: "Business Plus", pitch: "Let customers book appointments on your website, around the clock." },
   ai_chatbot: { plan: "ai", label: "AI", pitch: "An assistant on your website that answers questions from your own information and collects leads." },

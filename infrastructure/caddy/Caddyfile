@@ -1,0 +1,30 @@
+# TLS edge for customers' custom domains (Phase 5).
+#
+# Caddy obtains a certificate the first time a domain is visited ("on-demand TLS"), but only after
+# asking the GumaWeb API whether the domain is verified and serving a site, so nobody can make us
+# request certificates for arbitrary names. *.gumaweb.io stays on the Kubernetes ingress (wildcard cert).
+#
+#   GUMAWEB_TLS_ASK_URL  e.g. http://api:8000/api/v1/public/domains/tls-check
+#   SITES_UPSTREAM       the static sites server, e.g. sites:8080
+#   CADDY_TLS_MODE       empty for Let's Encrypt/ZeroSSL; "internal" for local testing (Caddy's own CA)
+#   ACME_EMAIL           contact address for the certificate authority
+{
+	email {$ACME_EMAIL:ops@gumaweb.io}
+	on_demand_tls {
+		ask {$GUMAWEB_TLS_ASK_URL}
+	}
+}
+
+https:// {
+	tls {$CADDY_TLS_MODE} {
+		on_demand
+	}
+	encode gzip
+	reverse_proxy {$SITES_UPSTREAM:sites:8080} {
+		header_up Host {host}
+	}
+}
+
+http:// {
+	redir https://{host}{uri} permanent
+}

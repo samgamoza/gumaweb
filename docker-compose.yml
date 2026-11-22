@@ -27,6 +27,13 @@ x-api-env: &api-env
   # Guma OS (Phase 4)
   VOICE_GATEWAY_TOKEN: ${VOICE_GATEWAY_TOKEN:-}
   WEBHOOK_ALLOW_PRIVATE: ${WEBHOOK_ALLOW_PRIVATE:-false}
+  # Business email (Phase 5): docker compose --profile mail up, then see docs/DEVELOPER_SETUP.md
+  MAIL_PROVIDER: ${MAIL_PROVIDER:-disabled}
+  STALWART_URL: http://stalwart:8080
+  STALWART_USERNAME: ${STALWART_USERNAME:-admin}
+  STALWART_SECRET: ${STALWART_SECRET:-}
+  STALWART_RECOVERY_ADMIN: ${STALWART_RECOVERY_ADMIN:-}
+  MAIL_CLIENT_HOST: ${MAIL_CLIENT_HOST:-mail.gumaweb.test}
   IMAGE_BACKEND: ${IMAGE_BACKEND:-procedural}
   LOG_JSON: "false"
 
@@ -154,7 +161,42 @@ services:
       - ./infrastructure/nginx/sites.dev.conf:/etc/nginx/conf.d/default.conf:ro
       - sites:/usr/share/nginx/html:ro
 
+  # Custom-domain TLS edge (Phase 5): docker compose --profile domains up
+  # Local test: CADDY_TLS_MODE=internal, then curl -k --resolve yourdomain.ph:${GW_CADDY_HTTPS_PORT}:127.0.0.1 ...
+  caddy:
+    image: caddy:2.8-alpine
+    profiles: ["domains"]
+    environment:
+      GUMAWEB_TLS_ASK_URL: http://api:8000/api/v1/public/domains/tls-check
+      SITES_UPSTREAM: sites:8080
+      CADDY_TLS_MODE: ${CADDY_TLS_MODE:-}
+      ACME_EMAIL: ${ACME_EMAIL:-ops@gumaweb.io}
+    ports: ["${GW_CADDY_HTTP_PORT:-80}:80", "${GW_CADDY_HTTPS_PORT:-443}:443"]
+    volumes:
+      - ./infrastructure/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+    depends_on: [api, sites]
+
+  # Self-hosted mail server for business email (Phase 5). First run: set STALWART_RECOVERY_ADMIN, then
+  # docker compose exec api python -m app.cli mail-bootstrap --hostname mail.gumaweb.test --domain gumaweb.test
+  stalwart:
+    image: stalwartlabs/stalwart:v1
+    profiles: ["mail"]
+    environment:
+      STALWART_RECOVERY_ADMIN: ${STALWART_RECOVERY_ADMIN:-}
+    ports:
+      - "127.0.0.1:${GW_STALWART_ADMIN_PORT:-18080}:8080"  # admin/API: loopback only
+      - "${GW_SMTP_IN_PORT:-2525}:25"
+      - "${GW_SUBMISSIONS_PORT:-4465}:465"
+      - "${GW_IMAPS_PORT:-9993}:993"
+    volumes:
+      - stalwart-etc:/etc/stalwart
+      - stalwart-data:/var/lib/stalwart
+
 volumes:
+  caddydata:
+  stalwart-etc:
+  stalwart-data:
   pgdata:
   redisdata:
   miniodata:

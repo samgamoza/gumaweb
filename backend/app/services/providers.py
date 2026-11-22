@@ -8,6 +8,7 @@ from app.core.config import get_settings
 from app.domains.publishing.renderer import SiteRenderer
 from app.domains.publishing.storage import LocalSiteStorage, S3SiteStorage, SiteStorage
 from app.services.dns_resolver import DnsResolver, LiveDnsResolver
+from app.services.mail_provider import DisabledMailProvider, MailProvider, StalwartMailProvider
 from app.services.notifications import (
     ConsoleEmailSender,
     ConsoleSmsSender,
@@ -25,6 +26,7 @@ class Providers:
         self._renderer: SiteRenderer | None = None
         self._http: httpx.Client | None = None
         self._dns: DnsResolver | None = None
+        self._mail: MailProvider | None = None
 
     @property
     def email(self) -> EmailSender:
@@ -82,6 +84,20 @@ class Providers:
     @dns.setter
     def dns(self, value: DnsResolver) -> None:
         self._dns = value
+
+    @property
+    def mail(self) -> MailProvider:
+        if self._mail is None:
+            s = get_settings()
+            if s.mail_provider == "stalwart" and s.stalwart_secret:
+                self._mail = StalwartMailProvider(s.stalwart_url, s.stalwart_username, s.stalwart_secret)
+            else:
+                self._mail = DisabledMailProvider()
+        return self._mail
+
+    @mail.setter
+    def mail(self, value: MailProvider) -> None:
+        self._mail = value
 
     @property
     def http(self) -> httpx.Client:

@@ -26,6 +26,14 @@ data:
   LLM_PRIMARY_MODEL: {{ .Values.config.llmPrimaryModel | quote }}
   LLM_SECONDARY_MODEL: {{ .Values.config.llmSecondaryModel | quote }}
   AI_REVIEW_ENABLED: {{ .Values.config.aiReviewEnabled | quote }}
+  CUSTOM_DOMAIN_CNAME_TARGET: {{ .Values.config.customDomainCnameTarget | quote }}
+  {{- with .Values.config.customDomainIpv4 }}
+  CUSTOM_DOMAIN_IPV4: {{ . | quote }}
+  {{- end }}
+  MAIL_PROVIDER: {{ .Values.config.mailProvider | quote }}
+  STALWART_URL: {{ .Values.config.stalwartUrl | quote }}
+  STALWART_USERNAME: {{ .Values.config.stalwartUsername | quote }}
+  MAIL_CLIENT_HOST: {{ .Values.config.mailClientHost | quote }}
   IMAGE_BACKEND: {{ .Values.config.imageBackend | quote }}
   IMAGE_API_URL: {{ .Values.config.imageApiUrl | quote }}
   IMAGE_MODEL: {{ .Values.config.imageModel | quote }}
@@ -56,6 +64,7 @@ stringData:
   SMTP_USER: {{ .Values.secrets.smtpUser | quote }}
   SMTP_PASSWORD: {{ .Values.secrets.smtpPassword | quote }}
   VOICE_GATEWAY_TOKEN: {{ .Values.secrets.voiceGatewayToken | quote }}
+  STALWART_SECRET: {{ .Values.secrets.stalwartSecret | quote }}
   FIRST_ADMIN_EMAIL: {{ .Values.secrets.firstAdminEmail | quote }}
   FIRST_ADMIN_PASSWORD: {{ required "secrets.firstAdminPassword is required" .Values.secrets.firstAdminPassword | quote }}
 {{- end }}

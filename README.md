@@ -7,7 +7,8 @@ it at `<business>.gumaweb.io`, invites the owner to claim it for free, and conve
 recurring customers. It is local-first: self-hosted PostgreSQL, Redis, MinIO and SMTP, and local models
 (Qwen / DeepSeek via Ollama or vLLM; FLUX/SDXL optional) behind strict quality gates.
 **Status:** Phases 1 (MVP), 2 (Factory Scale), 3 (Platform Expansion: CRM, booking, AI chatbot) and 4 (Guma OS:
-lead intelligence, business automation, AI voice receptionist, API keys and signed webhooks) are implemented.
+lead intelligence, business automation, AI voice receptionist, API keys and signed webhooks) and 5 (Digital
+Presence Factory: presence kit, custom domains, business email on self-hosted Stalwart) are implemented.
 
 ```text
 Directory record → Score → Profile → Template → Content + SEO → QA gate → Publish → Outreach → Claim → Upgrade

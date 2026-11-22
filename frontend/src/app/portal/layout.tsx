@@ -10,6 +10,7 @@ import { logout } from "@/lib/api";
 const NAV = [
   { href: "/portal", label: "Website" },
   { href: "/portal/presence", label: "Online presence" },
+  { href: "/portal/domains", label: "Domain & email" },
   { href: "/portal/leads", label: "Leads & CRM" },
   { href: "/portal/bookings", label: "Bookings" },
   { href: "/portal/assistant", label: "AI assistant" },

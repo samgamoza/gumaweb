@@ -132,11 +132,32 @@ python -m app.cli enqueue --limit 1000             # queue a factory batch
 python -m app.cli worker [--once]                  # jobs, event relay, automation tick, stale-call cleanup
 python -m app.cli dispatch-outreach
 python -m app.cli rescore-leads                    # refresh lead scores silently (nightly / after upgrading)
+python -m app.cli mail-bootstrap --hostname H --domain D  # first-run setup of a fresh Stalwart
 ```
 
 Phase 4 local testing: set `WEBHOOK_ALLOW_PRIVATE=true` to send webhooks to a receiver on your machine
 (`http://host.docker.internal:<port>/...` from Docker; metadata/link-local addresses stay blocked). Set
 `VOICE_GATEWAY_TOKEN` to exercise `/api/v1/voice/*`, or use the simulator under **Portal → Receptionist**.
+
+### Phase 5: custom domains and business email locally
+
+**Custom domains.** The dev sites server routes by Host header, so you can try a domain without DNS:
+`curl -H 'Host: yourdomain.ph' http://localhost:${GW_SITES_PORT}/`. For HTTPS, start Caddy with its own CA:
+```bash
+CADDY_TLS_MODE=internal GW_CADDY_HTTPS_PORT=8443 docker compose --profile domains up -d caddy
+curl -k --resolve yourdomain.ph:8443:127.0.0.1 https://yourdomain.ph:8443/
+```
+Verification needs a real TXT record. Locally, mark a domain verified in the database to try the rest of the
+flow (the verification logic itself is covered by tests).
+
+**Business email** (self-hosted Stalwart):
+```bash
+STALWART_RECOVERY_ADMIN=admin:<pick-a-password> docker compose --profile mail up -d stalwart
+STALWART_RECOVERY_ADMIN=admin:<same> docker compose exec api python -m app.cli mail-bootstrap \
+    --hostname mail.gumaweb.test --domain gumaweb.test        # prints the admin account once
+# then set MAIL_PROVIDER=stalwart, STALWART_USERNAME, STALWART_SECRET; unset STALWART_RECOVERY_ADMIN
+docker compose --profile mail up -d --force-recreate stalwart && docker compose up -d --force-recreate api worker
+```
 
 ## Troubleshooting
 

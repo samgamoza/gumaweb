@@ -176,6 +176,28 @@ def verify(secret: str, body: bytes, header: str) -> bool:
     return hmac.compare_digest(expected, parts["v1"])
 ```
 
+## Phase 5: Digital presence, domains and email (customer portal)
+
+| Method | Path | Plan | Description |
+|---|---|---|---|
+| GET | `/customer/presence` | any (parts by plan) | Kit: brand, assets (with `locked`), bios, hashtags; posts, `google`, `seo`, `checklist` on Professional+ |
+| POST | `/customer/presence/regenerate` | any | Rebuild from the current website |
+| GET | `/customer/presence/assets/{name}.png` | basic: `logo`, `profile`, `facebook-cover`; others Professional+ | Image, rendered on first request then cached |
+| GET | `/customer/presence/download.zip` | Professional+ | Images, bios, posts, Google listing text, SEO profile |
+| PUT | `/customer/presence/checklist` | Professional+ | `{step, done}` (Google Business Profile steps) |
+| GET / POST | `/customer/domains` | Professional+ to add | List / connect `{domain}` → DNS records to add (409 if another account holds it) |
+| POST | `/customer/domains/{id}/verify` | | Check the `_gumaweb.<domain>` TXT record now (503 `dns_unavailable` on resolver failure) |
+| PUT | `/customer/domains/{id}/website` | Professional+ | `{serve_website}`: switches the site's canonical URL and republishes |
+| DELETE | `/customer/domains/{id}` | | Stops serving, deletes its email on the mail server |
+| POST | `/customer/domains/{id}/email` | Professional+ | Enable email on a verified domain → mail DNS records |
+| POST | `/customer/domains/{id}/email/check` | | Compare required mail records with DNS (`status`: dns_pending / active / suspended) |
+| POST | `/customer/domains/{id}/mailboxes` | Professional+ | `{local_part, display_name?, kind: mailbox\|forward, forward_to[]}` → a mailbox's `password` is returned once |
+| POST | `/customer/domains/{id}/mailboxes/{mid}/reset-password` | | New password (returned once) |
+| DELETE | `/customer/domains/{id}/mailboxes/{mid}` | | Delete on the mail server too |
+
+Public: `GET /public/domains/tls-check?domain=…` → 200 only for verified domains serving a site (Caddy `ask`).
+Email endpoints answer `503 business_email_unavailable` when no mail server is configured.
+
 ## Outreach
 
 | Method | Path | Access | Description |

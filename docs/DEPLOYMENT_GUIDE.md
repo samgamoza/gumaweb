@@ -109,6 +109,26 @@ the smoke test, and time it against the 4-hour RTO.
 4. Watch **Admin → Overview → AI factory** (acceptance per model, tokens per site) and each website's
    `quality_report.content_notes` to tune prompts and model size. Gates are never relaxed per model.
 
+## 8b. Custom domains and business email (Phase 5)
+
+**Custom domains.** Run Caddy (`infrastructure/caddy/Caddyfile`) on a public IP in front of the sites service, with
+`GUMAWEB_TLS_ASK_URL=http://<api-service>:8000/api/v1/public/domains/tls-check`. Publish `domains.gumaweb.io` →
+that IP and set `CUSTOM_DOMAIN_CNAME_TARGET=domains.gumaweb.io` and `CUSTOM_DOMAIN_IPV4=<ip>`, so owners get the
+right records. Certificates are issued on first visit, only for verified domains we serve. Persist Caddy's
+`/data` volume, or certificates are re-issued and you hit CA rate limits.
+
+**Business email.** Run Stalwart (`stalwartlabs/stalwart:v1`) with persistent `/etc/stalwart` and
+`/var/lib/stalwart`, its admin port reachable only from the API. Open 25/465/993 publicly. Name it with
+`mail.gumaweb.io` (A record and reverse DNS/PTR from your provider; many receivers reject mail without one).
+1. Start it once with `STALWART_RECOVERY_ADMIN=admin:<password>`.
+2. Run `python -m app.cli mail-bootstrap --hostname mail.gumaweb.io --domain gumaweb.io`. It prints the admin
+   account once.
+3. Store that account as `secrets.stalwartSecret` / `config.stalwartUsername`, and set `config.mailProvider=stalwart`.
+4. Remove the recovery variable and restart Stalwart.
+
+Sending reputation is the hard part of self-hosting: start with low volumes, keep DMARC reports flowing, and
+watch blocklists.
+
 ## 9. Security checklist
 
 - [ ] Real `JWT_SECRET_KEY`, admin password rotated, secrets in a secrets manager

@@ -40,6 +40,7 @@ from app.services.notifications import MemoryEmailSender, MemorySmsSender  # noq
 from app.services.providers import providers  # noqa: E402
 from app.services.support import SYSTEM  # noqa: E402
 from app.services.template_service import TemplateService  # noqa: E402
+from tests.fakes import FakeDns  # noqa: E402
 
 # Default: in-memory SQLite (fast). Set TEST_DATABASE_URL to a disposable PostgreSQL database to run the
 # same suite against the production dialect (catches GROUP BY / locking / type differences SQLite forgives).
@@ -64,6 +65,7 @@ def _schema() -> Iterator[None]:
     providers.reset()
     providers.email = MemoryEmailSender()
     providers.sms = MemorySmsSender()
+    providers.dns = FakeDns()  # never hit real DNS from tests
     yield
     Base.metadata.drop_all(engine)
 

@@ -49,7 +49,7 @@ def _customer(user, db, settings, feature: Feature | None = None) -> Customer:
     return customer
 
 
-@router.get("/features", response_model=FeatureAccess, summary="Which Phase 3 modules this plan includes")
+@router.get("/features", response_model=FeatureAccess, summary="Which modules this plan includes")
 def features(user: CustomerUser, db: DbSession, settings: AppSettings) -> FeatureAccess:
     customer = _customer(user, db, settings)
     plan_features, name = plan_for_business(db, customer.business_id)

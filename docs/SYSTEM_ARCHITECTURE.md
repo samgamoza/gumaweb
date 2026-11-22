@@ -340,3 +340,76 @@ content words are mostly absent from the retrieved knowledge, the question and t
 and > 50 % of content words). Such answers are replaced by the hand-off message. Faithful paraphrases pass.
 **Known limit:** a lexical check cannot catch an improvised detail that reuses the caller's own words. For example,
 "braces for adults" is answered "yes" when the knowledge only lists braces.
+
+## 13. Phase 5: Digital Presence Factory
+
+Doc 20 Phase 5: generate more than websites. The website, AI assistant and voice receptionist already exist
+(Phases 1–4). Phase 5 adds the **presence kit** (social media kit, Google Business assets, SEO profile, logo),
+**custom domains** and **business email**.
+
+### 13.1 Presence kit (`domains/presence/*`, `services/presence_service.py`)
+- **Built from facts only.** `PresenceFacts` holds what we know about the business (website content, profile,
+  booking hours if the owner set them). Every bio, caption and description is assembled from those facts, so
+  nothing invents offers, prices, years or awards. Opening hours are never assumed.
+- **Social kit.** Bios fit each platform's visible limit (Facebook 101, Instagram 150, TikTok 80, X 160).
+  Hashtags are local (`#Malolos`, `#MalolosDentist`). The starter posts are a first week: welcome, three service
+  spotlights, an FAQ answer, how to reach you, and an online-booking invitation when booking is on. Links carry
+  UTM tags so analytics show which channel brought the visit.
+- **Google Business Profile pack.** GBP categories per industry. The description has no links, phone numbers or
+  promotional wording (whole sentences that break the rules are dropped; deleting words leaves fragments), and
+  doesn't repeat the about text. The pack warns when the name looks keyword-stuffed, a common suspension reason.
+  Posts have no phone numbers. A checklist tracks claiming, verification and setup. We never edit the listing:
+  that needs the owner's Google account.
+- **SEO profile.** A canonical name/address/phone, inconsistencies between the business record, the site and
+  the schema markup, keyword targets mapped to pages, and directory listings (Google, Facebook, Bing, Apple,
+  Foursquare).
+- **Images** (`render.py`, Pillow): logo (transparent), profile picture (monogram inside the circular crop),
+  Facebook cover (text inside the mobile-crop safe zone), story (clear of the top/bottom UI), one card per post,
+  and Google logo/cover. They use the site's template palette, with text colour chosen for WCAG contrast against
+  the whole gradient. They are brand cards, never fake photos.
+- **Cost model.** Every publish queues `generate_presence` (copy only, ~ms). Images render on first request and
+  are cached per kit version, because pre-rendering ~10 images for each of up to 100k unclaimed sites would cost
+  ~100 GB mostly for sites nobody claims. A new kit version drops the old images. Checklist progress survives.
+- **Plans.** Every plan gets the logo, profile picture, cover and bios. Professional and up get posts, story,
+  Google pack, SEO profile and the ZIP. Locked parts are withheld by the API, not just hidden.
+
+### 13.2 Custom domains (`domains/presence/domains.py`, `services/domain_service.py`)
+```text
+owner adds bellavista.ph ─▶ TXT _gumaweb.bellavista.ph = gumaweb-verify=<token> ─▶ verify (dnspython)
+   ─▶ "serve website" ─▶ website.url = https://bellavista.ph/ ─▶ republish (canonical, sitemap)
+   ─▶ every publish also writes _d/bellavista.ph/ ─▶ nginx maps Host (bare or www.) to that directory
+   ─▶ Caddy on-demand TLS asks GET /public/domains/tls-check?domain=… (200 only if verified and serving)
+```
+- Normalization accepts what owners paste (`https://www.X.PH/about`) and stores the bare punycode domain. It
+  refuses IPs, internal and special-use names, and our own platform domain.
+- **No squatting.** A domain belongs to one account. A never-verified claim is released after 7 days.
+- **Revocation.** Verified domains are re-checked daily by an hourly `check_domains` job. If the TXT record
+  disappears (the owner removed it, or the domain changed hands), the domain stops serving and the owner is
+  emailed. Resolver errors are not treated as revocation.
+- A downgrade stops serving. The storage layout (`_d/<domain>/`) works for local disk and S3. The nginx host
+  regex only produces valid domain names, so the Host header cannot escape the directory.
+- **Fixed during this phase:** the production nginx configs had an unquoted regex containing `{0,61}`, which
+  nginx rejects. The production sites config had never passed `nginx -t`. It is quoted now, and all configs are
+  validated in a container.
+
+### 13.3 Business email (`domains/presence/mail.py`, `services/mail_service.py`, `services/mail_provider.py`)
+- **Self-hosted Stalwart** (local-first; no paid mail API), managed through its JMAP management API. The adapter
+  was built against a live Stalwart 1.1.1 rather than the docs, which have moved and disagree in places:
+  - collections are index-keyed maps (`credentials: {"0": {"@type": "Password", "secret": …}}`);
+  - forwarding outside the domain is a `MailingList` whose `recipients` is a set (`{"a@b.ph": true}`);
+  - a domain is deleted only after its `DkimSignature` objects;
+  - Stalwart generates and rotates DKIM keys itself, and `dnsZoneFile` lists every record it needs.
+- **DNS records.** We show Stalwart's records rather than computing our own. MX, SPF, DKIM and DMARC are marked
+  required. "Check DNS" refreshes the records (keys appear and rotate asynchronously) and compares them with
+  real DNS.
+- **Passwords** are generated (~96 bits), sent to the mail server and shown to the owner once. GumaWeb never
+  stores them.
+- **Limits.** Professional includes 5 mailboxes and Business Plus 20; forwards don't count. `postmaster@` and
+  `abuse@` are reserved.
+- **Downgrades suspend, never delete.** No new addresses can be created, but deleting someone's inbox because a
+  plan changed would destroy their correspondence. Removing the domain deletes its addresses and the domain on the
+  mail server.
+- **No mail server configured** (`MAIL_PROVIDER=disabled`): email endpoints answer `503
+  business_email_unavailable`, so the portal never pretends a mailbox exists.
+- **First run.** `python -m app.cli mail-bootstrap` completes Stalwart's setup through `x:Bootstrap/set` (the
+  same call its web wizard makes) and prints the permanent admin account once.

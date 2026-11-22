@@ -892,5 +892,94 @@ ALTER TABLE factory_jobs ADD CONSTRAINT ck_factory_jobs_jobkind CHECK (kind IN (
 
 UPDATE alembic_version SET version_num='0004' WHERE alembic_version.version_num = '0003';
 
+-- Running upgrade 0004 -> 0005
+
+CREATE TABLE custom_domains (
+    business_id UUID NOT NULL, 
+    domain VARCHAR(253) NOT NULL, 
+    status VARCHAR(32) NOT NULL, 
+    verification_token VARCHAR(64) NOT NULL, 
+    verified_at TIMESTAMP WITH TIME ZONE, 
+    last_checked_at TIMESTAMP WITH TIME ZONE, 
+    last_error VARCHAR(500), 
+    serve_website BOOLEAN NOT NULL, 
+    id UUID NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (CURRENT_TIMESTAMP) NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (CURRENT_TIMESTAMP) NOT NULL, 
+    CONSTRAINT pk_custom_domains PRIMARY KEY (id), 
+    CONSTRAINT fk_custom_domains_business_id_businesses FOREIGN KEY(business_id) REFERENCES businesses (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_custom_domains_domain UNIQUE (domain), 
+    CONSTRAINT ck_custom_domains_domainstatus CHECK (status IN ('pending', 'verified', 'failed'))
+);
+
+CREATE INDEX ix_custom_domains_business_id ON custom_domains (business_id);
+
+CREATE TABLE presence_kits (
+    business_id UUID NOT NULL, 
+    version INTEGER NOT NULL, 
+    website_version INTEGER, 
+    brand JSONB NOT NULL, 
+    social JSONB NOT NULL, 
+    google JSONB NOT NULL, 
+    seo JSONB NOT NULL, 
+    rendered JSONB NOT NULL, 
+    checklist JSONB NOT NULL, 
+    generated_at TIMESTAMP WITH TIME ZONE, 
+    id UUID NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (CURRENT_TIMESTAMP) NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (CURRENT_TIMESTAMP) NOT NULL, 
+    CONSTRAINT pk_presence_kits PRIMARY KEY (id), 
+    CONSTRAINT fk_presence_kits_business_id_businesses FOREIGN KEY(business_id) REFERENCES businesses (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_presence_kits_business_id UNIQUE (business_id)
+);
+
+CREATE TABLE mail_domains (
+    domain_id UUID NOT NULL, 
+    business_id UUID NOT NULL, 
+    provider_ref VARCHAR(64) NOT NULL, 
+    dns_records JSONB NOT NULL, 
+    status VARCHAR(16) NOT NULL, 
+    dns_checked_at TIMESTAMP WITH TIME ZONE, 
+    dns_missing JSONB NOT NULL, 
+    id UUID NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (CURRENT_TIMESTAMP) NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (CURRENT_TIMESTAMP) NOT NULL, 
+    CONSTRAINT pk_mail_domains PRIMARY KEY (id), 
+    CONSTRAINT fk_mail_domains_business_id_businesses FOREIGN KEY(business_id) REFERENCES businesses (id) ON DELETE CASCADE, 
+    CONSTRAINT fk_mail_domains_domain_id_custom_domains FOREIGN KEY(domain_id) REFERENCES custom_domains (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_mail_domains_domain_id UNIQUE (domain_id)
+);
+
+CREATE INDEX ix_mail_domains_business_id ON mail_domains (business_id);
+
+CREATE TABLE mailboxes (
+    mail_domain_id UUID NOT NULL, 
+    business_id UUID NOT NULL, 
+    local_part VARCHAR(64) NOT NULL, 
+    display_name VARCHAR(120), 
+    kind VARCHAR(32) NOT NULL, 
+    forward_to JSONB NOT NULL, 
+    quota_mb INTEGER NOT NULL, 
+    provider_ref VARCHAR(64) NOT NULL, 
+    id UUID NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (CURRENT_TIMESTAMP) NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (CURRENT_TIMESTAMP) NOT NULL, 
+    CONSTRAINT pk_mailboxes PRIMARY KEY (id), 
+    CONSTRAINT fk_mailboxes_business_id_businesses FOREIGN KEY(business_id) REFERENCES businesses (id) ON DELETE CASCADE, 
+    CONSTRAINT fk_mailboxes_mail_domain_id_mail_domains FOREIGN KEY(mail_domain_id) REFERENCES mail_domains (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_mailboxes_domain_local_part UNIQUE (mail_domain_id, local_part), 
+    CONSTRAINT ck_mailboxes_mailboxkind CHECK (kind IN ('mailbox', 'forward'))
+);
+
+CREATE INDEX ix_mailboxes_business_id ON mailboxes (business_id);
+
+CREATE INDEX ix_mailboxes_mail_domain_id ON mailboxes (mail_domain_id);
+
+ALTER TABLE factory_jobs DROP CONSTRAINT ck_factory_jobs_jobkind;
+
+ALTER TABLE factory_jobs ADD CONSTRAINT ck_factory_jobs_jobkind CHECK (kind IN ('generate_website', 'regenerate_website', 'publish_website', 'run_automation', 'deliver_webhook', 'summarize_call', 'generate_presence', 'check_domains'));
+
+UPDATE alembic_version SET version_num='0005' WHERE alembic_version.version_num = '0004';
+
 COMMIT;
 

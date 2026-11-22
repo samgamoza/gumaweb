@@ -98,6 +98,9 @@ def main(argv: list[str] | None = None) -> int:
     gen.add_argument("--publish", action="store_true")
     sub.add_parser("dispatch-outreach")
     sub.add_parser("rescore-leads", help="backfill/refresh lead scores without firing alerts (nightly)")
+    mail = sub.add_parser("mail-bootstrap", help="first-run setup of a fresh Stalwart mail server")
+    mail.add_argument("--hostname", required=True, help="the mail server's public name, e.g. mail.gumaweb.io")
+    mail.add_argument("--domain", required=True, help="the platform's own mail domain, e.g. gumaweb.io")
     enqueue = sub.add_parser("enqueue")
     enqueue.add_argument("--limit", type=int, default=1000)
     enqueue.add_argument("--no-publish", action="store_true")
@@ -116,6 +119,19 @@ def main(argv: list[str] | None = None) -> int:
         with SessionLocal() as db:
             result = WebsiteService(db, settings).enqueue_batch(
                 GenerateBatchRequest(limit=args.limit, publish=not args.no_publish)).model_dump()
+    elif args.command == "mail-bootstrap":
+        import os
+
+        from app.services.mail_provider import bootstrap_stalwart
+
+        user, _, secret = os.environ.get("STALWART_RECOVERY_ADMIN", "").partition(":")
+        if not secret:
+            print("Set STALWART_RECOVERY_ADMIN=admin:<password> (the same value given to the Stalwart container)")
+            return 2
+        created = bootstrap_stalwart(settings.stalwart_url, user, secret, hostname=args.hostname,
+                                     default_domain=args.domain)
+        result = {**created, "next": "Set STALWART_USERNAME/STALWART_SECRET to these values, MAIL_PROVIDER=stalwart, "
+                                     "restart Stalwart, and remove STALWART_RECOVERY_ADMIN."}
     elif args.command == "generate":
         result = cmd_generate(args.limit, args.publish)
     else:

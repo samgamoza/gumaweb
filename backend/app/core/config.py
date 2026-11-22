@@ -56,6 +56,16 @@ class Settings(BaseSettings):
     domain_pending_days: int = 7  # unverified domains are released after this, so nobody can squat a name
     domain_recheck_hours: int = 24
 
+    # --- Business email (Phase 5) --------------------------------------------
+    # "stalwart": self-hosted Stalwart mail server managed through its JMAP API; "disabled": email is
+    # honestly unavailable (endpoints answer 503).
+    mail_provider: Literal["disabled", "stalwart"] = "disabled"
+    stalwart_url: str = "http://stalwart:8080"
+    stalwart_username: str = "admin"
+    stalwart_secret: str | None = None
+    mail_client_host: str = "mail.gumaweb.io"  # what owners enter in their mail apps (IMAP/SMTP)
+    mailbox_quota_mb: int = 2048
+
     # --- Filesystem / storage ---------------------------------------------
     templates_dir: Path = REPO_ROOT / "templates"
     generated_sites_dir: Path = REPO_ROOT / "generated-sites"
