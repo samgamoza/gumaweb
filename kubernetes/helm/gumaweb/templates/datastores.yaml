@@ -1,0 +1,178 @@
+{{- $name := include "gumaweb.fullname" . -}}
+{{- if .Values.postgres.enabled }}
+# Single-instance PostgreSQL for dev/staging. Production: CloudNativePG (HA, PITR backups to object storage).
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $name }}-postgres
+  labels: {{- include "gumaweb.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+spec:
+  serviceName: {{ $name }}-postgres
+  replicas: 1
+  selector:
+    matchLabels: {{- include "gumaweb.selector" (dict "root" . "component" "postgres") | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "gumaweb.selector" (dict "root" . "component" "postgres") | nindent 8 }}
+    spec:
+      securityContext: { fsGroup: 999, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: postgres
+          image: {{ .Values.postgres.image }}
+          ports: [{ name: pg, containerPort: 5432 }]
+          env:
+            - { name: POSTGRES_DB, value: {{ .Values.postgres.database | quote }} }
+            - { name: POSTGRES_USER, value: {{ .Values.postgres.user | quote }} }
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: {{ include "gumaweb.secretName" . }}, key: POSTGRES_PASSWORD } }
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+          readinessProbe:
+            exec: { command: ["sh", "-c", "pg_isready -U $POSTGRES_USER"] }
+            periodSeconds: 10
+          resources: {{- toYaml .Values.postgres.resources | nindent 12 }}
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- with .Values.postgres.storage.storageClass }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources: { requests: { storage: {{ .Values.postgres.storage.size }} } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}-postgres
+  labels: {{- include "gumaweb.labels" . | nindent 4 }}
+spec:
+  selector: {{- include "gumaweb.selector" (dict "root" . "component" "postgres") | nindent 4 }}
+  ports: [{ name: pg, port: 5432, targetPort: pg }]
+---
+{{- end }}
+{{- if .Values.redis.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $name }}-redis
+  labels: {{- include "gumaweb.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+spec:
+  serviceName: {{ $name }}-redis
+  replicas: 1
+  selector:
+    matchLabels: {{- include "gumaweb.selector" (dict "root" . "component" "redis") | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "gumaweb.selector" (dict "root" . "component" "redis") | nindent 8 }}
+    spec:
+      securityContext: { runAsNonRoot: true, runAsUser: 999, fsGroup: 999, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: redis
+          image: {{ .Values.redis.image }}
+          args: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "allkeys-lru"]
+          ports: [{ name: redis, containerPort: 6379 }]
+          readinessProbe:
+            exec: { command: ["redis-cli", "ping"] }
+          resources: {{- toYaml .Values.redis.resources | nindent 12 }}
+          volumeMounts:
+            - { name: data, mountPath: /data }
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- with .Values.redis.storage.storageClass }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources: { requests: { storage: {{ .Values.redis.storage.size }} } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}-redis
+  labels: {{- include "gumaweb.labels" . | nindent 4 }}
+spec:
+  selector: {{- include "gumaweb.selector" (dict "root" . "component" "redis") | nindent 4 }}
+  ports: [{ name: redis, port: 6379, targetPort: redis }]
+---
+{{- end }}
+{{- if .Values.minio.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $name }}-minio
+  labels: {{- include "gumaweb.labels" . | nindent 4 }}
+    app.kubernetes.io/component: minio
+spec:
+  serviceName: {{ $name }}-minio
+  replicas: 1
+  selector:
+    matchLabels: {{- include "gumaweb.selector" (dict "root" . "component" "minio") | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "gumaweb.selector" (dict "root" . "component" "minio") | nindent 8 }}
+    spec:
+      securityContext: { runAsNonRoot: true, runAsUser: 10001, fsGroup: 10001, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: minio
+          image: {{ .Values.minio.image }}
+          args: ["server", "/data", "--console-address", ":9001"]
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom: { secretKeyRef: { name: {{ include "gumaweb.secretName" . }}, key: S3_ACCESS_KEY } }
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom: { secretKeyRef: { name: {{ include "gumaweb.secretName" . }}, key: S3_SECRET_KEY } }
+          ports: [{ name: s3, containerPort: 9000 }, { name: console, containerPort: 9001 }]
+          readinessProbe:
+            httpGet: { path: /minio/health/ready, port: s3 }
+          volumeMounts:
+            - { name: data, mountPath: /data }
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- with .Values.minio.storage.storageClass }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources: { requests: { storage: {{ .Values.minio.storage.size }} } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}-minio
+  labels: {{- include "gumaweb.labels" . | nindent 4 }}
+spec:
+  selector: {{- include "gumaweb.selector" (dict "root" . "component" "minio") | nindent 4 }}
+  ports: [{ name: s3, port: 9000, targetPort: s3 }, { name: console, port: 9001, targetPort: console }]
+---
+# Create the sites bucket; only the live "<subdomain>/" prefixes are publicly readable via nginx.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $name }}-minio-bucket
+  labels: {{- include "gumaweb.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 10
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: mc
+          image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+          env:
+            - name: AK
+              valueFrom: { secretKeyRef: { name: {{ include "gumaweb.secretName" . }}, key: S3_ACCESS_KEY } }
+            - name: SK
+              valueFrom: { secretKeyRef: { name: {{ include "gumaweb.secretName" . }}, key: S3_SECRET_KEY } }
+          command: ["sh", "-c"]
+          args:
+            - >-
+              mc alias set s3 http://{{ $name }}-minio:9000 "$AK" "$SK" &&
+              mc mb --ignore-existing s3/{{ .Values.minio.bucket }} &&
+              mc anonymous set download s3/{{ .Values.minio.bucket }}
+{{- end }}

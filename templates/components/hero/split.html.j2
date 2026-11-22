@@ -1,0 +1,17 @@
+{% set image = block.get('image') %}
+<section id="hero" class="section hero hero--split">
+  <div class="container hero__split">
+    <div>
+      <p class="eyebrow">{{ business.industry_label }}{% if business.city %} &middot; {{ business.city }}{% endif %}</p>
+      <h1>{{ block.get('headline') }}</h1>
+      <p class="lead">{{ block.get('subheadline') }}</p>
+      <div class="actions">
+        <a class="btn" href="{{ link(block.get('cta_target')) }}">{{ block.get('cta_label') }}</a>
+        {% if business.phone %}<a class="btn btn--ghost" href="tel:{{ business.phone|tel }}">{{ business.phone|tel }}</a>{% endif %}
+      </div>
+    </div>
+    <figure class="hero__media{% if not image %} hero__media--empty{% endif %}">
+      {% if image %}<img src="{{ root }}{{ image.get('path') }}" alt="{{ image.get('alt', '') }}" width="1600" height="900" fetchpriority="high">{% endif %}
+    </figure>
+  </div>
+</section>

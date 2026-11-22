@@ -1,0 +1,29 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+*.db
+
+# Node
+node_modules/
+.next/
+
+# Published site artifacts (runtime output)
+generated-sites/*
+!generated-sites/README.md
+
+# Tooling
+.playwright-mcp/
+.DS_Store
+.idea/
+.vscode/
+frontend/tsconfig.tsbuildinfo

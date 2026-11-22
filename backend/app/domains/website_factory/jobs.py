@@ -1,0 +1,31 @@
+"""Factory job queue vocabulary and retry policy (pure domain rules)."""
+
+from __future__ import annotations
+
+from datetime import timedelta
+from enum import StrEnum
+
+
+class JobKind(StrEnum):
+    GENERATE_WEBSITE = "generate_website"
+    REGENERATE_WEBSITE = "regenerate_website"
+    PUBLISH_WEBSITE = "publish_website"
+
+
+class JobStatus(StrEnum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+
+
+ACTIVE_JOB_STATUSES = (JobStatus.QUEUED, JobStatus.RUNNING)
+
+BASE_BACKOFF_SECONDS = 30
+MAX_BACKOFF_SECONDS = 3600
+STALE_LOCK_AFTER = timedelta(minutes=15)
+
+
+def retry_delay(attempts: int) -> timedelta:
+    """Exponential backoff: 30s, 60s, 120s ... capped at one hour."""
+    return timedelta(seconds=min(MAX_BACKOFF_SECONDS, BASE_BACKOFF_SECONDS * 2 ** max(0, attempts - 1)))

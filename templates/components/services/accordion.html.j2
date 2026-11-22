@@ -1,0 +1,14 @@
+<section id="services" class="section services services--accordion">
+  <div class="container container--narrow">
+    <header class="section__header">
+      <h2>{{ block.get('heading') }}</h2>
+      {% if block.get('intro') %}<p class="muted">{{ block.get('intro') }}</p>{% endif %}
+    </header>
+    {% for item in block.get('items', []) %}
+    <details class="accordion"{% if loop.first %} open{% endif %}>
+      <summary>{{ item.get('name') }}</summary>
+      <p>{{ item.get('description') }}</p>
+    </details>
+    {% endfor %}
+  </div>
+</section>

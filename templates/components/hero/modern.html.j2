@@ -1,0 +1,11 @@
+<section id="hero" class="section hero hero--modern">
+  <div class="container hero__inner hero__inner--center">
+    <p class="eyebrow">{{ business.industry_label }}{% if business.city %} &middot; {{ business.city }}{% endif %}</p>
+    <h1>{{ block.get('headline') }}</h1>
+    <p class="lead">{{ block.get('subheadline') }}</p>
+    <div class="actions">
+      <a class="btn" href="{{ link(block.get('cta_target')) }}">{{ block.get('cta_label') }}</a>
+      {% if business.phone %}<a class="btn btn--ghost" href="tel:{{ business.phone|tel }}">Call {{ business.phone|tel }}</a>{% endif %}
+    </div>
+  </div>
+</section>

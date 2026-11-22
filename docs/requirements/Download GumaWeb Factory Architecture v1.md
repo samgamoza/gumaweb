@@ -1,0 +1,436 @@
+# GumaWeb Factory Architecture
+## Autonomous Website Factory for Unserved SMEs
+
+### Vision
+GumaWeb is not a website builder. It is an AI-powered Website Manufacturing System designed to convert business listings into claimable, production-ready websites at near-zero marginal cost.
+
+---
+
+## Core Philosophy
+
+### Traditional Vibe Coding
+```text
+Prompt
+    ↓
+AI
+    ↓
+Custom Website
+```
+
+### GumaWeb Factory Model
+```text
+Business Record
+    ↓
+Industry Intelligence
+    ↓
+Template Assembly
+    ↓
+AI Enhancement
+    ↓
+Quality Validation
+    ↓
+Claimable Website
+```
+
+The objective is mass production, not bespoke generation.
+
+---
+
+# High-Level Architecture
+
+```text
+                    GumaWeb Factory
+
+┌──────────────────────────────────────────┐
+│          BUSINESS DISCOVERY LAYER        │
+└──────────────────────────────────────────┘
+                 ↓
+┌──────────────────────────────────────────┐
+│         BUSINESS INTELLIGENCE LAYER      │
+└──────────────────────────────────────────┘
+                 ↓
+┌──────────────────────────────────────────┐
+│         WEBSITE FACTORY CORE             │
+└──────────────────────────────────────────┘
+                 ↓
+┌──────────────────────────────────────────┐
+│       AI ENHANCEMENT SERVICES            │
+└──────────────────────────────────────────┘
+                 ↓
+┌──────────────────────────────────────────┐
+│       VALIDATION & QUALITY CONTROL       │
+└──────────────────────────────────────────┘
+                 ↓
+┌──────────────────────────────────────────┐
+│      WEBSITE HOSTING & CLAIM SYSTEM      │
+└──────────────────────────────────────────┘
+                 ↓
+┌──────────────────────────────────────────┐
+│       OUTREACH & CONVERSION ENGINE       │
+└──────────────────────────────────────────┘
+```
+
+---
+
+# Layer 1: Business Discovery
+
+## Sources
+- SEC directories
+- DTI directories
+- Chamber of Commerce directories
+- Industry associations
+- Yellow Pages
+- Local business directories
+- Facebook pages
+- Google Business Profiles
+
+### Standardized Business Record
+```json
+{
+  "business_name": "",
+  "city": "",
+  "province": "",
+  "industry": "",
+  "phone": "",
+  "email": "",
+  "facebook": "",
+  "website": null
+}
+```
+
+## Opportunity Scoring
+Factors:
+- Existing website
+- Existing domain
+- Facebook-only presence
+- Activity level
+- Reviews and engagement
+- Estimated business value
+
+Output:
+```yaml
+priority:
+  score: 82
+  website_absent: true
+  active_facebook: true
+  contact_available: true
+```
+
+---
+
+# Layer 2: Business Intelligence
+
+## Business Profiler Agent
+
+Input:
+```text
+ABC Construction
+San Fernando, Pampanga
+```
+
+Output:
+```yaml
+industry: construction
+services:
+  - roofing
+  - renovation
+  - carpentry
+brand_tone: professional
+website_template: construction-v2
+```
+
+## Competitor Analyzer
+Analyzes top-performing websites within the same industry and extracts:
+
+```yaml
+common_sections:
+  - hero
+  - services
+  - projects
+  - testimonials
+  - contact
+```
+
+---
+
+# Layer 3: Website Factory Core
+
+## Website Blueprint Generator
+
+```json
+{
+  "theme": "construction",
+  "pages": [
+    "home",
+    "services",
+    "projects",
+    "about",
+    "contact"
+  ]
+}
+```
+
+## Template Selection Engine
+
+Industry → Template Mapping
+
+Examples:
+- Construction
+- Restaurant
+- Dental Clinic
+- School
+- Auto Repair
+- Resort
+- Law Firm
+- Accounting
+
+Target:
+- 50–100 premium master templates
+
+## Component Library
+Reusable blocks:
+- Hero
+- Gallery
+- Services
+- FAQ
+- Testimonials
+- Contact
+- Maps
+- CTA
+- Footer
+
+---
+
+# Layer 4: AI Enhancement Services
+
+## Content Generator
+Creates:
+- Hero messaging
+- About section
+- Service descriptions
+- FAQs
+- Call-to-actions
+
+## SEO Generator
+Generates:
+- Page titles
+- Meta descriptions
+- Structured metadata
+
+## Local SEO Engine
+Produces localized search targets:
+
+```text
+Construction Company in Pampanga
+Roof Repair Pampanga
+General Contractor Near Me
+```
+
+---
+
+# Layer 5: AI Image Factory
+
+## Industry Image Generation
+Models:
+- FLUX
+- SDXL
+- Future multimodal models
+
+Assets:
+- Hero banners
+- Service visuals
+- Marketing visuals
+- Background imagery
+
+## Smart Stock Replacement
+Generate royalty-free images locally instead of purchasing stock photos.
+
+## Future Premium Feature
+Generate:
+- 30-second promotional videos
+- Business explainer videos
+
+---
+
+# Layer 6: Validation & QA
+
+## Quality Agent
+Validations:
+
+```yaml
+grammar:
+seo:
+mobile:
+performance:
+broken_links:
+missing_images:
+```
+
+## Accessibility Agent
+Checks:
+- Contrast
+- Heading hierarchy
+- Forms
+- Navigation
+
+## Human-Likeness Reviewer
+Rewrites generic AI content into natural business language.
+
+---
+
+# Layer 7: Static Site Publication
+
+Frameworks:
+- Astro
+- Hugo
+- Next.js Static Export
+- 11ty
+
+Output:
+```html
+Static HTML
+Static CSS
+Minimal JavaScript
+```
+
+Advantages:
+- Fast
+- SEO-friendly
+- Low hosting costs
+- CDN-ready
+
+---
+
+# Layer 8: Website Claim System
+
+## Generated URL
+
+```text
+abc-construction.gumaweb.io
+```
+
+## Claim Banner
+
+```text
+This website was generated by GumaWeb.
+Own this business?
+Claim your website.
+```
+
+## Verification Methods
+- Email
+- SMS
+- Facebook page verification
+- Business registration records
+
+## Admin Portal
+After claiming:
+- Edit content
+- Upload images
+- Change branding
+- Manage services
+- Manage products
+
+---
+
+# Layer 9: Outreach & Conversion Engine
+
+## Outreach Email
+
+```text
+Hi ABC Construction,
+
+We noticed your company currently lacks a professional website.
+
+We've already created one for you:
+https://abc-construction.gumaweb.io
+
+View it and claim ownership for free.
+```
+
+## Future Voice Outreach
+AI voice agent:
+
+```text
+We created a website for your business.
+Would you like to review and claim ownership?
+```
+
+---
+
+# Layer 10: Monetization Strategy
+
+## Free Plan
+- GumaWeb subdomain
+- Core pages
+- Contact form
+- Mobile responsive design
+- Basic SEO
+
+## Premium Plan
+- Custom domain
+- Business email
+- Online booking
+- CRM
+- Analytics
+- AI chatbot
+- AI receptionist
+- Lead management
+
+---
+
+# Infrastructure Architecture
+
+## AI Datacenter
+
+```text
+GPU Cluster
+│
+├── DeepSeek / Qwen
+│   Content Generation
+│
+├── FLUX
+│   Image Generation
+│
+├── Embedding Models
+│   Classification
+│
+└── QA Models
+    Validation
+```
+
+## Storage Node
+
+```text
+Business Records
+Generated Sites
+Templates
+Images
+Vector Database
+```
+
+## Home VPS
+
+```text
+Reverse Proxy
+API Gateway
+Claim Portal
+Monitoring
+CDN Front Door
+```
+
+---
+
+# Strategic Differentiator
+
+Traditional Website Builders:
+
+> What website would you like to build?
+
+GumaWeb:
+
+> We've already built it. Claim it.
+
+This changes the model from website creation to website acquisition.
+
+GumaWeb is best positioned as a Website-as-a-Lead-Magnet Factory, enabling mass-generation of professional digital storefronts for underserved SMEs and converting those storefronts into long-term customer relationships.

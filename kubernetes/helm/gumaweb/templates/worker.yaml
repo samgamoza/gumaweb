@@ -1,0 +1,41 @@
+{{- $name := include "gumaweb.fullname" . -}}
+{{- $sel := dict "root" . "component" "worker" -}}
+# Factory workers claim jobs with FOR UPDATE SKIP LOCKED, so replicas scale horizontally (HPA in scaling.yaml).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}-worker
+  labels: {{- include "gumaweb.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  {{- if not .Values.worker.autoscaling.enabled }}
+  replicas: {{ .Values.worker.replicas }}
+  {{- end }}
+  selector:
+    matchLabels: {{- include "gumaweb.selector" $sel | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "gumaweb.selector" $sel | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/config.yaml") . | sha256sum }}
+    spec:
+      {{- include "gumaweb.podSecurity" . | nindent 6 }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      terminationGracePeriodSeconds: 120   # SIGTERM -> finish the current job, then exit
+      containers:
+        - name: worker
+          image: {{ include "gumaweb.image" (dict "root" . "name" .Values.api.image) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["python", "-m", "app.cli", "worker"]
+          {{- include "gumaweb.apiEnv" . | nindent 10 }}
+          {{- include "gumaweb.containerSecurity" . | nindent 10 }}
+          resources: {{- toYaml .Values.worker.resources | nindent 12 }}
+          volumeMounts:
+            - { name: sites, mountPath: /srv/generated-sites }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        {{- include "gumaweb.sitesVolume" . | nindent 8 }}
+        - name: tmp
+          emptyDir: {}

@@ -1,0 +1,18 @@
+<section id="hero" class="section hero hero--corporate">
+  <div class="container hero__split">
+    <div>
+      <p class="eyebrow">{{ business.industry_label }}</p>
+      <h1>{{ block.get('headline') }}</h1>
+      <p class="lead">{{ block.get('subheadline') }}</p>
+      <a class="btn" href="{{ link(block.get('cta_target')) }}">{{ block.get('cta_label') }}</a>
+    </div>
+    <aside class="card hero__card" aria-label="Quick contact">
+      <h2 class="h4">Get in touch</h2>
+      <ul class="facts">
+        {% if business.phone %}<li><span class="muted">Phone</span><a href="tel:{{ business.phone|tel }}">{{ business.phone|tel }}</a></li>{% endif %}
+        {% if business.email %}<li><span class="muted">Email</span><a href="mailto:{{ business.email }}">{{ business.email }}</a></li>{% endif %}
+        {% if business.city %}<li><span class="muted">Location</span><span>{{ business.city }}{% if business.province %}, {{ business.province }}{% endif %}</span></li>{% endif %}
+      </ul>
+    </aside>
+  </div>
+</section>

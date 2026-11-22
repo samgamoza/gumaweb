@@ -1,0 +1,17 @@
+<section id="services" class="section services services--cards">
+  <div class="container">
+    <header class="section__header">
+      <h2>{{ block.get('heading') }}</h2>
+      {% if block.get('intro') %}<p class="muted">{{ block.get('intro') }}</p>{% endif %}
+    </header>
+    <div class="grid grid--3">
+      {% for item in block.get('items', []) %}
+      <article class="card service-card">
+        <span class="service-card__index" aria-hidden="true">{{ "%02d"|format(loop.index) }}</span>
+        <h3 class="h4">{{ item.get('name') }}</h3>
+        <p>{{ item.get('description') }}</p>
+      </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>

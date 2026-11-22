@@ -1,0 +1,45 @@
+slug: restaurant-v1
+name: Restaurant - Premium
+category: restaurant
+version: 1
+default: true
+industries: [restaurant]
+description: Warm, appetizing layout for restaurants, cafes and bakeries.
+theme:
+  palette:
+    primary: "#b45309"
+    primary_contrast: "#ffffff"
+    accent: "#2a1a12"
+    background: "#fffdf9"
+    surface: "#f8f1e7"
+    text: "#2a1a12"
+    muted: "#6b5446"
+    border: "#ecdfcf"
+  fonts:
+    heading: 'Georgia, "Times New Roman", serif'
+    body: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'
+  radius: 14px
+pages:
+  - slug: home
+    sections:
+      - {component: hero, variant: premium}
+      - {component: about, variant: standard}
+      - {component: services, variant: grid}
+      - {component: gallery, variant: grid}
+      - {component: contact, variant: split}
+  - slug: about
+    sections:
+      - {component: about, variant: standard}
+      - {component: testimonials, variant: cards}
+  - slug: services
+    title: Offerings
+    sections:
+      - {component: services, variant: cards}
+      - {component: cta, variant: premium}
+  - slug: faq
+    sections:
+      - {component: faq, variant: standard}
+  - slug: contact
+    title: Visit Us
+    sections:
+      - {component: contact, variant: split}

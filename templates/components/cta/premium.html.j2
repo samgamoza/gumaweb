@@ -1,0 +1,10 @@
+<section class="section cta cta--premium">
+  <div class="container container--narrow cta__center">
+    <h2 class="display-sm">{{ block.get('heading') }}</h2>
+    {% if block.get('text') %}<p class="lead">{{ block.get('text') }}</p>{% endif %}
+    <div class="actions actions--center">
+      <a class="btn" href="{{ link(block.get('button_target')) }}">{{ block.get('button_label') }}</a>
+      {% if business.phone %}<a class="btn btn--ghost" href="tel:{{ business.phone|tel }}">{{ business.phone|tel }}</a>{% endif %}
+    </div>
+  </div>
+</section>

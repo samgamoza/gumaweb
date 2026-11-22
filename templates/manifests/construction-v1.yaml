@@ -1,0 +1,42 @@
+slug: construction-v1
+name: Construction - Corporate
+category: construction
+version: 1
+default: true
+industries: [construction, electrical]
+description: Strong, trustworthy layout for contractors and builders.
+theme:
+  palette:
+    primary: "#c2410c"
+    primary_contrast: "#ffffff"
+    accent: "#1c1917"
+    background: "#ffffff"
+    surface: "#f7f5f2"
+    text: "#1c1917"
+    muted: "#57534e"
+    border: "#e7e5e4"
+  fonts:
+    heading: '"Arial Narrow", "Roboto Condensed", system-ui, sans-serif'
+    body: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'
+  radius: 4px
+pages:
+  - slug: home
+    sections:
+      - {component: hero, variant: corporate}
+      - {component: services, variant: cards}
+      - {component: cta, variant: banner}
+      - {component: contact, variant: split}
+  - slug: about
+    sections:
+      - {component: about, variant: standard}
+      - {component: cta, variant: banner}
+  - slug: services
+    sections:
+      - {component: services, variant: grid}
+      - {component: cta, variant: banner}
+  - slug: faq
+    sections:
+      - {component: faq, variant: standard}
+  - slug: contact
+    sections:
+      - {component: contact, variant: split}

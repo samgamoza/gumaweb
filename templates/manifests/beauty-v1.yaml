@@ -1,0 +1,43 @@
+slug: beauty-v1
+name: Beauty & Wellness - Elegant
+category: beauty
+version: 1
+default: true
+industries: [beauty]
+description: Soft, elegant layout for salons, spas and barbershops.
+theme:
+  palette:
+    primary: "#be185d"
+    primary_contrast: "#ffffff"
+    accent: "#2b1320"
+    background: "#fffbfc"
+    surface: "#fbf0f4"
+    text: "#2b1320"
+    muted: "#6e5060"
+    border: "#f2dde6"
+  fonts:
+    heading: 'Georgia, "Times New Roman", serif'
+    body: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'
+  radius: 22px
+pages:
+  - slug: home
+    sections:
+      - {component: hero, variant: premium}
+      - {component: services, variant: grid}
+      - {component: gallery, variant: grid}
+      - {component: cta, variant: premium}
+  - slug: about
+    sections:
+      - {component: about, variant: standard}
+      - {component: testimonials, variant: cards}
+  - slug: services
+    title: Treatments
+    sections:
+      - {component: services, variant: cards}
+  - slug: faq
+    sections:
+      - {component: faq, variant: standard}
+  - slug: contact
+    title: Book
+    sections:
+      - {component: contact, variant: split}

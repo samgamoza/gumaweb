@@ -1,0 +1,16 @@
+<section id="services" class="section services services--grid">
+  <div class="container">
+    <header class="section__header">
+      <h2>{{ block.get('heading') }}</h2>
+      {% if block.get('intro') %}<p class="muted">{{ block.get('intro') }}</p>{% endif %}
+    </header>
+    <dl class="service-list">
+      {% for item in block.get('items', []) %}
+      <div class="service-list__row">
+        <dt>{{ item.get('name') }}</dt>
+        <dd>{{ item.get('description') }}</dd>
+      </div>
+      {% endfor %}
+    </dl>
+  </div>
+</section>

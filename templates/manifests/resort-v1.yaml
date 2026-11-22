@@ -1,0 +1,44 @@
+slug: resort-v1
+name: Resort & Hospitality - Premium
+category: resort
+version: 1
+default: true
+industries: [resort]
+description: Immersive layout for resorts, hotels and inns.
+theme:
+  palette:
+    primary: "#0e7490"
+    primary_contrast: "#ffffff"
+    accent: "#0b2530"
+    background: "#ffffff"
+    surface: "#eef7f9"
+    text: "#0b2530"
+    muted: "#456470"
+    border: "#d6eaef"
+  fonts:
+    heading: 'Georgia, "Times New Roman", serif'
+    body: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'
+  radius: 18px
+pages:
+  - slug: home
+    sections:
+      - {component: hero, variant: premium}
+      - {component: about, variant: standard}
+      - {component: services, variant: cards}
+      - {component: gallery, variant: grid}
+      - {component: cta, variant: premium}
+  - slug: about
+    sections:
+      - {component: about, variant: standard}
+      - {component: testimonials, variant: cards}
+  - slug: services
+    title: Rooms & Amenities
+    sections:
+      - {component: services, variant: grid}
+  - slug: faq
+    sections:
+      - {component: faq, variant: standard}
+  - slug: contact
+    title: Book a Stay
+    sections:
+      - {component: contact, variant: split}

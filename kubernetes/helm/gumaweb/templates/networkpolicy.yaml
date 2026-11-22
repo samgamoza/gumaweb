@@ -1,0 +1,46 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- $name := include "gumaweb.fullname" . -}}
+# Default deny ingress inside the release; open only the paths the platform needs.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}-default-deny
+  labels: {{- include "gumaweb.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: { app.kubernetes.io/instance: {{ .Release.Name }} }
+  policyTypes: [Ingress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}-allow-ingress-controller
+  labels: {{- include "gumaweb.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchExpressions:
+      - { key: app.kubernetes.io/component, operator: In, values: [api, portal, sites] }
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: ingress-nginx }
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: guma-monitoring }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}-allow-datastores
+  labels: {{- include "gumaweb.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchExpressions:
+      - { key: app.kubernetes.io/component, operator: In, values: [postgres, redis, minio] }
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: { app.kubernetes.io/instance: {{ .Release.Name }} }
+        - podSelector:
+            matchLabels: { job-name: {{ $name }}-minio-bucket }
+{{- end }}

@@ -1,0 +1,44 @@
+slug: cafe-modern-v1
+name: Cafe & Eatery - Modern
+category: restaurant
+version: 1
+default: false
+industries: [restaurant]
+description: Relaxed, image-led layout for cafes, bakeries and casual eateries.
+theme:
+  palette:
+    primary: "#9a3412"
+    primary_contrast: "#ffffff"
+    accent: "#292524"
+    background: "#fffcf7"
+    surface: "#f5ede3"
+    text: "#292524"
+    muted: "#6b5e55"
+    border: "#ebdfd0"
+  fonts:
+    heading: 'Georgia, "Times New Roman", serif'
+    body: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'
+  radius: 24px
+pages:
+  - slug: home
+    sections:
+      - {component: hero, variant: split}
+      - {component: services, variant: grid}
+      - {component: gallery, variant: grid}
+      - {component: cta, variant: premium}
+  - slug: about
+    title: Our Story
+    sections:
+      - {component: about, variant: standard}
+      - {component: testimonials, variant: cards}
+  - slug: services
+    title: Menu & Services
+    sections:
+      - {component: services, variant: cards}
+  - slug: faq
+    sections:
+      - {component: faq, variant: standard}
+  - slug: contact
+    title: Find Us
+    sections:
+      - {component: contact, variant: split}

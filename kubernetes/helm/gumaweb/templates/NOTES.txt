@@ -1,0 +1,15 @@
+GumaWeb {{ .Chart.AppVersion }} deployed to namespace {{ .Release.Namespace }}.
+
+  Portal : https://{{ .Values.global.portalHost }}
+  API    : https://{{ .Values.global.apiHost }}/docs
+  Sites  : https://<subdomain>.{{ .Values.global.domain }}  (storage backend: {{ .Values.config.storageBackend }})
+
+Migrations and seeding run as a Helm hook Job. Check it with:
+  kubectl -n {{ .Release.Namespace }} get jobs -l app.kubernetes.io/component=migrate
+
+Next steps:
+  * Change the bootstrap admin password immediately after first login.
+  * DNS: point {{ .Values.global.apiHost }}, {{ .Values.global.portalHost }} and *.{{ .Values.global.domain }} at the ingress.
+{{- if not .Values.secrets.existingSecret }}
+  * WARNING: secrets were rendered from values. Use secrets.existingSecret in production.
+{{- end }}

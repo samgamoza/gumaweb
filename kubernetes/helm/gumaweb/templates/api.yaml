@@ -1,0 +1,60 @@
+{{- $name := include "gumaweb.fullname" . -}}
+{{- $sel := dict "root" . "component" "api" -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}-api
+  labels: {{- include "gumaweb.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  {{- if not .Values.api.autoscaling.enabled }}
+  replicas: {{ .Values.api.replicas }}
+  {{- end }}
+  selector:
+    matchLabels: {{- include "gumaweb.selector" $sel | nindent 6 }}
+  strategy:
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  template:
+    metadata:
+      labels: {{- include "gumaweb.selector" $sel | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/config.yaml") . | sha256sum }}
+    spec:
+      {{- include "gumaweb.podSecurity" . | nindent 6 }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: api
+          image: {{ include "gumaweb.image" (dict "root" . "name" .Values.api.image) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["gunicorn", "app.main:app", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:8000",
+                 "-w", "{{ .Values.api.workers }}", "--access-logfile", "-", "--graceful-timeout", "30"]
+          ports: [{ name: http, containerPort: 8000 }]
+          {{- include "gumaweb.apiEnv" . | nindent 10 }}
+          {{- include "gumaweb.containerSecurity" . | nindent 10 }}
+          readinessProbe:
+            httpGet: { path: /api/v1/health/ready, port: http }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources: {{- toYaml .Values.api.resources | nindent 12 }}
+          volumeMounts:
+            - { name: sites, mountPath: /srv/generated-sites }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        {{- include "gumaweb.sitesVolume" . | nindent 8 }}
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}-api
+  labels: {{- include "gumaweb.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  selector: {{- include "gumaweb.selector" $sel | nindent 4 }}
+  ports: [{ name: http, port: 80, targetPort: http }]

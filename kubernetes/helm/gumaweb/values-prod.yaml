@@ -1,0 +1,27 @@
+# helm upgrade --install gumaweb kubernetes/helm/gumaweb -n guma-core -f kubernetes/helm/gumaweb/values-prod.yaml
+image:
+  tag: "0.1.0"
+
+config:
+  storageBackend: s3
+
+secrets:
+  existingSecret: gumaweb-secrets     # managed by External Secrets / Vault, never committed
+
+api:
+  replicas: 3
+  autoscaling: { enabled: true, minReplicas: 3, maxReplicas: 20, targetCPU: 65 }
+
+sites:
+  autoscaling: { enabled: true, minReplicas: 3, maxReplicas: 20, targetCPU: 65 }
+
+postgres:
+  enabled: false                      # CloudNativePG cluster with PITR backups (RPO 1h / RTO 4h)
+externalDatabaseUrl: ""               # supplied through the existing secret key DATABASE_URL instead
+
+minio:
+  enabled: true
+  storage: { size: 1Ti, storageClass: ceph-block }
+
+redis:
+  storage: { size: 10Gi }

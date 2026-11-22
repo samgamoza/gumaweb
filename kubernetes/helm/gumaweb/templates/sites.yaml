@@ -1,0 +1,79 @@
+{{- $name := include "gumaweb.fullname" . -}}
+{{- $sel := dict "root" . "component" "sites" -}}
+{{- $s3 := eq .Values.config.storageBackend "s3" -}}
+{{- if not $s3 }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $name }}-sites
+  labels: {{- include "gumaweb.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  accessModes: [{{ .Values.sitesStorage.accessMode }}]
+  {{- with .Values.sitesStorage.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources:
+    requests: { storage: {{ .Values.sitesStorage.size }} }
+---
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}-sites
+  labels: {{- include "gumaweb.labels" . | nindent 4 }}
+    app.kubernetes.io/component: sites
+spec:
+  {{- if not .Values.sites.autoscaling.enabled }}
+  replicas: {{ .Values.sites.replicas }}
+  {{- end }}
+  selector:
+    matchLabels: {{- include "gumaweb.selector" $sel | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "gumaweb.selector" $sel | nindent 8 }}
+      annotations:
+        checksum/nginx: {{ include (print $.Template.BasePath "/config.yaml") . | sha256sum }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: nginx
+          image: {{ .Values.sites.image }}
+          ports: [{ name: http, containerPort: 8080 }]
+          {{- include "gumaweb.containerSecurity" . | nindent 10 }}
+          readinessProbe:
+            httpGet: { path: /healthz, port: http, httpHeaders: [{ name: Host, value: "probe.{{ .Values.global.domain }}" }] }
+          resources: {{- toYaml .Values.sites.resources | nindent 12 }}
+          volumeMounts:
+            - { name: conf, mountPath: /etc/nginx/conf.d }
+            - { name: tmp, mountPath: /tmp }
+            - { name: run, mountPath: /var/run }
+            - { name: cache, mountPath: /var/cache/nginx }
+            {{- if not $s3 }}
+            - { name: sites, mountPath: /srv/sites, readOnly: true }
+            {{- end }}
+      volumes:
+        - name: conf
+          configMap: { name: {{ $name }}-sites-nginx }
+        - { name: tmp, emptyDir: {} }
+        - { name: run, emptyDir: {} }
+        - { name: cache, emptyDir: {} }
+        {{- if not $s3 }}
+        - name: sites
+          persistentVolumeClaim: { claimName: {{ $name }}-sites, readOnly: true }
+        {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}-sites
+  labels: {{- include "gumaweb.labels" . | nindent 4 }}
+    app.kubernetes.io/component: sites
+spec:
+  selector: {{- include "gumaweb.selector" $sel | nindent 4 }}
+  ports: [{ name: http, port: 80, targetPort: http }]

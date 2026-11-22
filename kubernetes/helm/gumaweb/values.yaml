@@ -1,0 +1,138 @@
+# Default values (staging-like). Production overrides live in values-prod.yaml.
+
+global:
+  domain: gumaweb.io            # sites: <subdomain>.gumaweb.io
+  portalHost: app.gumaweb.io
+  apiHost: api.gumaweb.io
+  imagePullSecrets: []
+
+image:
+  registry: registry.guma.local
+  pullPolicy: IfNotPresent
+  tag: ""                       # defaults to .Chart.AppVersion
+
+config:
+  environment: production
+  logLevel: INFO
+  storageBackend: local         # local (RWX volume) | s3 (MinIO/Ceph RGW)
+  emailBackend: smtp
+  smtpHost: postfix.guma-system.svc.cluster.local
+  smtpPort: "25"
+  emailFrom: "GumaWeb <hello@gumaweb.io>"
+  aiEnabled: false
+  llmBaseUrl: http://vllm.guma-ai.svc.cluster.local:8000/v1
+  llmPrimaryModel: Qwen/Qwen2.5-14B-Instruct
+  llmSecondaryModel: Qwen/Qwen2.5-14B-Instruct   # point at a DeepSeek deployment to split review
+  aiReviewEnabled: true
+  imageBackend: procedural       # procedural | http (FLUX/SDXL behind /images/generations)
+  imageApiUrl: http://image-gen.guma-ai.svc.cluster.local:8000/v1
+  imageModel: black-forest-labs/FLUX.1-schnell
+
+# Secrets: either let the chart create them from these values (dev/staging only),
+# or point existingSecret at a Secret managed by External Secrets / Sealed Secrets / Vault.
+secrets:
+  existingSecret: ""
+  jwtSecretKey: ""              # REQUIRED when existingSecret is empty
+  postgresPassword: ""
+  s3AccessKey: gumaweb
+  s3SecretKey: ""
+  smtpUser: ""
+  smtpPassword: ""
+  firstAdminEmail: admin@gumaweb.io
+  firstAdminPassword: ""
+
+api:
+  image: gumaweb/api
+  replicas: 2
+  workers: 4
+  resources:
+    requests: { cpu: 250m, memory: 384Mi }
+    limits: { cpu: "1", memory: 1Gi }
+  autoscaling: { enabled: true, minReplicas: 2, maxReplicas: 10, targetCPU: 70 }
+
+portal:
+  image: gumaweb/portal
+  replicas: 2
+  resources:
+    requests: { cpu: 100m, memory: 192Mi }
+    limits: { cpu: 500m, memory: 512Mi }
+  autoscaling: { enabled: true, minReplicas: 2, maxReplicas: 6, targetCPU: 70 }
+
+# Factory workers ("builder" in doc 18): drain the job queue + relay the event outbox.
+worker:
+  replicas: 2
+  resources:
+    requests: { cpu: 250m, memory: 384Mi }
+    limits: { cpu: "1", memory: 1Gi }
+  autoscaling: { enabled: true, minReplicas: 1, maxReplicas: 20, targetCPU: 60 }
+
+sites:
+  image: nginxinc/nginx-unprivileged:1.27-alpine
+  replicas: 2
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { cpu: 500m, memory: 256Mi }
+  autoscaling: { enabled: true, minReplicas: 2, maxReplicas: 10, targetCPU: 70 }
+
+# Shared volume: API writes published sites, nginx serves them (requires RWX: CephFS, NFS, Longhorn RWX).
+sitesStorage:
+  size: 50Gi
+  storageClass: ""
+  accessMode: ReadWriteMany
+
+jobs:
+  migrate: { enabled: true }
+  outreachDispatch: { enabled: true, schedule: "*/15 * * * *" }
+  factoryBatch: { enabled: true, schedule: "0 2 * * *", limit: 1000 }   # enqueues; workers build (1000+/day)
+
+postgres:
+  enabled: true                 # set false to use an external cluster (e.g. CloudNativePG) via externalDatabaseUrl
+  image: pgvector/pgvector:pg16
+  database: gumaweb
+  user: gumaweb
+  storage: { size: 50Gi, storageClass: "" }
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits: { cpu: "2", memory: 4Gi }
+externalDatabaseUrl: ""
+
+redis:
+  enabled: true
+  image: redis:7-alpine
+  storage: { size: 5Gi, storageClass: "" }
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: 500m, memory: 512Mi }
+
+minio:
+  enabled: false                # enable with config.storageBackend=s3
+  image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+  bucket: gumaweb-sites
+  storage: { size: 200Gi, storageClass: "" }
+
+# Local-first inference (Phase 2). Requires GPU nodes + NVIDIA device plugin.
+ai:
+  enabled: false
+  namespace: guma-ai
+  image: vllm/vllm-openai:v0.10.1
+  model: Qwen/Qwen2.5-14B-Instruct
+  gpus: 1
+  storage: { size: 100Gi, storageClass: "" }
+
+ingress:
+  enabled: true
+  className: nginx
+  clusterIssuer: letsencrypt-dns01   # wildcard certificates need a DNS-01 solver
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 12m
+    nginx.ingress.kubernetes.io/limit-rps: "50"
+
+networkPolicy:
+  enabled: true
+
+monitoring:
+  serviceMonitor: true          # requires kube-prometheus-stack CRDs
+  prometheusRules: true
+
+podDisruptionBudget:
+  enabled: true

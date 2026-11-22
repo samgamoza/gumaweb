@@ -1,0 +1,44 @@
+slug: dental-smile-v1
+name: Dental - Bright Smile
+category: medical
+version: 1
+default: false
+industries: [dental]
+description: Friendly, airy layout with a large hero image for dental clinics.
+theme:
+  palette:
+    primary: "#0284c7"
+    primary_contrast: "#ffffff"
+    accent: "#0c2a3f"
+    background: "#ffffff"
+    surface: "#f0f8fd"
+    text: "#0c2a3f"
+    muted: "#486273"
+    border: "#d7eaf5"
+  fonts:
+    heading: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'
+    body: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'
+  radius: 20px
+pages:
+  - slug: home
+    sections:
+      - {component: hero, variant: split}
+      - {component: services, variant: cards}
+      - {component: testimonials, variant: cards}
+      - {component: cta, variant: premium}
+  - slug: about
+    title: Our Clinic
+    sections:
+      - {component: about, variant: standard}
+      - {component: gallery, variant: grid}
+  - slug: services
+    title: Treatments
+    sections:
+      - {component: services, variant: accordion}
+  - slug: faq
+    sections:
+      - {component: faq, variant: standard}
+  - slug: contact
+    title: Book a Visit
+    sections:
+      - {component: contact, variant: split}

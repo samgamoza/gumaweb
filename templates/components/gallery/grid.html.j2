@@ -1,0 +1,15 @@
+{# Owner-uploaded photos only; generated imagery is never presented as the business's work. #}
+{% if block.get('images') %}
+<section id="gallery" class="section gallery">
+  <div class="container">
+    <h2>{{ block.get('heading') }}</h2>
+    <div class="grid grid--3">
+      {% for image in block.get('images') %}
+      <figure class="gallery__item">
+        <img src="{{ root }}{{ image.get('path') }}" alt="{{ image.get('alt', '') }}" loading="lazy" width="600" height="400">
+      </figure>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}

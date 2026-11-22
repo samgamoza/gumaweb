@@ -1,0 +1,26 @@
+[project]
+name = "gumaweb-backend"
+version = "0.1.0"
+description = "GumaWeb Autonomous Website Factory - API and domain services"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = ["B008", "UP046"]  # Depends() defaults are idiomatic; keep Generic[T] for readability
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["pydantic.mypy"]
+ignore_missing_imports = true
+
+[tool.ruff.lint.per-file-ignores]
+"app/domains/business_profile/industry_catalog.py" = ["E501"]  # copy/data table
+"app/domains/website_factory/content_quality.py" = ["E501"]  # regex tables

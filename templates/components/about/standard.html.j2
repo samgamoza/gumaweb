@@ -1,0 +1,17 @@
+<section id="about" class="section about">
+  <div class="container about__grid">
+    <div>
+      <h2>{{ block.get('heading') }}</h2>
+      <p>{{ block.get('company_story') }}</p>
+    </div>
+    <div class="stack">
+      {% if block.get('mission_statement') %}
+      <div class="card">
+        <h3 class="h4">Our mission</h3>
+        <p>{{ block.get('mission_statement') }}</p>
+      </div>
+      {% endif %}
+      {% if block.get('service_summary') %}<p class="muted">{{ block.get('service_summary') }}</p>{% endif %}
+    </div>
+  </div>
+</section>

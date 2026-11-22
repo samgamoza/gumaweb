@@ -1,0 +1,33 @@
+# Namespace structure from 18-kubernetes-deployment.
+# Phase 1 runs every GumaWeb workload from the Helm release in guma-core (the generated-sites
+# volume must share a namespace with the API that writes it). guma-websites becomes the
+# static/CDN tier once sites are served from object storage; guma-ai hosts GPU inference.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: guma-core
+  labels: { app.kubernetes.io/part-of: gumaweb, pod-security.kubernetes.io/enforce: restricted }
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: guma-ai
+  labels: { app.kubernetes.io/part-of: gumaweb, pod-security.kubernetes.io/enforce: baseline }
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: guma-websites
+  labels: { app.kubernetes.io/part-of: gumaweb, pod-security.kubernetes.io/enforce: restricted }
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: guma-monitoring
+  labels: { app.kubernetes.io/part-of: gumaweb }
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: guma-system
+  labels: { app.kubernetes.io/part-of: gumaweb }

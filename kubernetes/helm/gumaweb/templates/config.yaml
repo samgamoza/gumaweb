@@ -1,0 +1,60 @@
+{{- $name := include "gumaweb.fullname" . -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-config
+  labels: {{- include "gumaweb.labels" . | nindent 4 }}
+data:
+  ENVIRONMENT: {{ .Values.config.environment | quote }}
+  LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+  LOG_JSON: "true"
+  REDIS_URL: {{ printf "redis://%s-redis:6379/0" $name | quote }}
+  CORS_ORIGINS: {{ printf "https://%s" .Values.global.portalHost | quote }}
+  FRONTEND_URL: {{ printf "https://%s" .Values.global.portalHost | quote }}
+  API_PUBLIC_URL: {{ printf "https://%s" .Values.global.apiHost | quote }}
+  SITE_URL_TEMPLATE: {{ printf "https://{subdomain}.%s/" .Values.global.domain | quote }}
+  PUBLIC_SITE_DOMAIN: {{ .Values.global.domain | quote }}
+  STORAGE_BACKEND: {{ .Values.config.storageBackend | quote }}
+  S3_ENDPOINT_URL: {{ printf "http://%s-minio:9000" $name | quote }}
+  S3_BUCKET: {{ .Values.minio.bucket | quote }}
+  EMAIL_BACKEND: {{ .Values.config.emailBackend | quote }}
+  SMTP_HOST: {{ .Values.config.smtpHost | quote }}
+  SMTP_PORT: {{ .Values.config.smtpPort | quote }}
+  EMAIL_FROM: {{ .Values.config.emailFrom | quote }}
+  AI_ENABLED: {{ .Values.config.aiEnabled | quote }}
+  LLM_BASE_URL: {{ .Values.config.llmBaseUrl | quote }}
+  LLM_PRIMARY_MODEL: {{ .Values.config.llmPrimaryModel | quote }}
+  LLM_SECONDARY_MODEL: {{ .Values.config.llmSecondaryModel | quote }}
+  AI_REVIEW_ENABLED: {{ .Values.config.aiReviewEnabled | quote }}
+  IMAGE_BACKEND: {{ .Values.config.imageBackend | quote }}
+  IMAGE_API_URL: {{ .Values.config.imageApiUrl | quote }}
+  IMAGE_MODEL: {{ .Values.config.imageModel | quote }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-sites-nginx
+  labels: {{- include "gumaweb.labels" . | nindent 4 }}
+data:
+  {{- $conf := ternary "files/sites-s3.conf" "files/sites.conf" (eq .Values.config.storageBackend "s3") }}
+  default.conf: |
+{{ .Files.Get $conf | replace "gumaweb\\.io" (.Values.global.domain | replace "." "\\.") | replace "MINIO_HOST" (printf "%s-minio" $name) | replace "BUCKET" .Values.minio.bucket | indent 4 }}
+{{- if not .Values.secrets.existingSecret }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "gumaweb.secretName" . }}
+  labels: {{- include "gumaweb.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  JWT_SECRET_KEY: {{ required "secrets.jwtSecretKey is required (or set secrets.existingSecret)" .Values.secrets.jwtSecretKey | quote }}
+  POSTGRES_PASSWORD: {{ required "secrets.postgresPassword is required" .Values.secrets.postgresPassword | quote }}
+  DATABASE_URL: {{ .Values.externalDatabaseUrl | default (printf "postgresql+psycopg://%s:%s@%s-postgres:5432/%s" .Values.postgres.user .Values.secrets.postgresPassword $name .Values.postgres.database) | quote }}
+  S3_ACCESS_KEY: {{ .Values.secrets.s3AccessKey | quote }}
+  S3_SECRET_KEY: {{ .Values.secrets.s3SecretKey | quote }}
+  SMTP_USER: {{ .Values.secrets.smtpUser | quote }}
+  SMTP_PASSWORD: {{ .Values.secrets.smtpPassword | quote }}
+  FIRST_ADMIN_EMAIL: {{ .Values.secrets.firstAdminEmail | quote }}
+  FIRST_ADMIN_PASSWORD: {{ required "secrets.firstAdminPassword is required" .Values.secrets.firstAdminPassword | quote }}
+{{- end }}

@@ -1,0 +1,16 @@
+{# Renders only with real, owner-provided testimonials; GumaWeb never fabricates reviews. #}
+{% if block.get('items') %}
+<section id="testimonials" class="section testimonials">
+  <div class="container">
+    <h2>{{ block.get('heading') }}</h2>
+    <div class="grid grid--3">
+      {% for item in block.get('items') %}
+      <blockquote class="card">
+        <p>&ldquo;{{ item.get('quote') }}&rdquo;</p>
+        <footer class="muted">&mdash; {{ item.get('author') }}</footer>
+      </blockquote>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}

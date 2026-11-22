@@ -1,0 +1,29 @@
+# helm repo add grafana https://grafana.github.io/helm-charts
+# helm upgrade --install loki grafana/loki -n guma-monitoring -f kubernetes/monitoring/loki-values.yaml
+# helm upgrade --install alloy grafana/alloy -n guma-monitoring   # ships pod logs to Loki
+deploymentMode: SingleBinary
+loki:
+  auth_enabled: false
+  commonConfig: { replication_factor: 1 }
+  schemaConfig:
+    configs:
+      - from: "2026-01-01"
+        store: tsdb
+        object_store: s3
+        schema: v13
+        index: { prefix: loki_index_, period: 24h }
+  storage:
+    type: s3
+    bucketNames: { chunks: gumaweb-logs, ruler: gumaweb-logs, admin: gumaweb-logs }
+    s3:
+      endpoint: http://gumaweb-minio.guma-core.svc.cluster.local:9000
+      s3ForcePathStyle: true
+      insecure: true
+  limits_config:
+    retention_period: 720h   # 30 days (data_retention, 19-security-compliance)
+singleBinary:
+  replicas: 1
+  persistence: { size: 20Gi }
+backend: { replicas: 0 }
+read: { replicas: 0 }
+write: { replicas: 0 }

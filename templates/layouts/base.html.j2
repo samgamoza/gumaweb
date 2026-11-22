@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page_title }}</title>
+  <meta name="description" content="{{ page_description }}">
+  {% if seo.get('keywords') %}<meta name="keywords" content="{{ (seo.keywords + seo.get('local_keywords', []))|join(', ') }}">{% endif %}
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{{ page_title }}">
+  <meta property="og:description" content="{{ page_description }}">
+  {% if og_image %}<meta property="og:image" content="{{ og_image }}">{% endif %}
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta name="generator" content="GumaWeb">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23334155'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="{{ root }}assets/site.css">
+  <style>{{ css_vars }}</style>
+  {% for schema in schema_blocks %}
+  <script type="application/ld+json">{{ schema }}</script>
+  {% endfor %}
+</head>
+<body>
+  {% if claim_banner %}
+  <div class="claim-banner" role="region" aria-label="Claim this website">
+    <div class="container claim-banner__inner">
+      <p><strong>Own this business?</strong> Claim this website and manage it for free.
+        <span class="claim-banner__note">Created by GumaWeb from public business information.</span></p>
+      <a class="btn btn--light btn--small" href="{{ claim_url }}" data-track="claim_banner_click">Claim this website</a>
+    </div>
+  </div>
+  {% endif %}
+
+  <header class="site-header">
+    <div class="container site-header__inner">
+      <a class="brand" href="{{ root }}">{{ business.name }}</a>
+      <nav aria-label="Main navigation">
+        <ul class="nav">
+          {% for p in pages %}
+          <li><a href="{{ root }}{{ p.path }}"{% if p.slug == page.slug %} aria-current="page"{% endif %}>{{ p.title }}</a></li>
+          {% endfor %}
+        </ul>
+      </nav>
+      {% if business.phone %}<a class="btn btn--small header-call" href="tel:{{ business.phone|tel }}">Call</a>{% endif %}
+    </div>
+  </header>
+
+  <main id="main">
+    {% for section_html in sections_html %}
+    {{ section_html }}
+    {% endfor %}
+  </main>
+
+  <footer class="site-footer">
+    <div class="container site-footer__inner">
+      <div>
+        <p class="brand">{{ business.name }}</p>
+        <p class="muted">{{ business.industry_label }}{% if business.city %} &middot; {{ business.city }}{% if business.province %}, {{ business.province }}{% endif %}{% endif %}</p>
+      </div>
+      <div class="site-footer__contact">
+        {% if business.phone %}<p><a href="tel:{{ business.phone|tel }}">{{ business.phone|tel }}</a></p>{% endif %}
+        {% if business.email %}<p><a href="mailto:{{ business.email }}">{{ business.email }}</a></p>{% endif %}
+        {% if business.facebook %}<p><a href="{{ business.facebook }}" rel="noopener" target="_blank">Facebook</a></p>{% endif %}
+      </div>
+    </div>
+    <div class="container site-footer__legal muted">
+      <p>&copy; {{ year }} {{ business.name }}. Website by <a href="https://gumaweb.io" rel="noopener">GumaWeb</a>.</p>
+    </div>
+  </footer>
+
+  <script>
+  (function () {
+    var endpoint = {{ (api_url ~ '/api/v1/public/sites/' ~ subdomain ~ '/events')|tojson }};
+    function track(type) {
+      try {
+        var body = JSON.stringify({ event_type: type, path: location.pathname, referrer: document.referrer || null });
+        if (navigator.sendBeacon) { navigator.sendBeacon(endpoint, new Blob([body], { type: "text/plain" })); }
+        else { fetch(endpoint, { method: "POST", body: body, keepalive: true }); }
+      } catch (e) {}
+    }
+    track("page_view");
+    document.addEventListener("click", function (ev) {
+      var a = ev.target.closest && ev.target.closest("a");
+      if (!a) return;
+      if (a.dataset.track) track(a.dataset.track);
+      else if (a.getAttribute("href").indexOf("tel:") === 0) track("phone_click");
+    });
+    document.querySelectorAll("form[data-contact-form]").forEach(function (form) {
+      form.addEventListener("submit", function (ev) {
+        ev.preventDefault();
+        var status = form.querySelector("[data-form-status]");
+        fetch(form.action, { method: "POST", body: new FormData(form), headers: { Accept: "application/json" } })
+          .then(function (r) { if (!r.ok) throw new Error(); form.reset(); status.textContent = "Thank you! Your message has been sent."; })
+          .catch(function () { status.textContent = "Sorry, something went wrong. Please call or email us instead."; });
+      });
+    });
+  })();
+  </script>
+</body>
+</html>

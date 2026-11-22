@@ -1,0 +1,41 @@
+slug: legal-v1
+name: Legal & Professional - Corporate
+category: legal
+version: 1
+default: true
+industries: [legal, accounting]
+description: Formal, authoritative layout for law and accounting firms.
+theme:
+  palette:
+    primary: "#7c5a1e"
+    primary_contrast: "#ffffff"
+    accent: "#141b2d"
+    background: "#ffffff"
+    surface: "#f5f4f0"
+    text: "#141b2d"
+    muted: "#555b6b"
+    border: "#e4e2da"
+  fonts:
+    heading: 'Georgia, "Times New Roman", serif'
+    body: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'
+  radius: 2px
+pages:
+  - slug: home
+    sections:
+      - {component: hero, variant: premium}
+      - {component: services, variant: grid}
+      - {component: cta, variant: premium}
+  - slug: about
+    title: The Firm
+    sections:
+      - {component: about, variant: standard}
+  - slug: services
+    title: Practice Areas
+    sections:
+      - {component: services, variant: grid}
+  - slug: faq
+    sections:
+      - {component: faq, variant: standard}
+  - slug: contact
+    sections:
+      - {component: contact, variant: split}

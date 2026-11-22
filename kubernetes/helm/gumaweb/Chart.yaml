@@ -1,0 +1,7 @@
+apiVersion: v2
+name: gumaweb
+description: GumaWeb Autonomous Website Factory - API, portal, generated-site hosting and data services
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords: [gumaweb, website-factory, fastapi, nextjs]

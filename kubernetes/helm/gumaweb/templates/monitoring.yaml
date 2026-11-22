@@ -1,0 +1,54 @@
+{{- $name := include "gumaweb.fullname" . -}}
+{{- if .Values.monitoring.serviceMonitor }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ $name }}-api
+  labels: {{- include "gumaweb.labels" . | nindent 4 }}
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels: { app.kubernetes.io/instance: {{ .Release.Name }}, app.kubernetes.io/component: api }
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+---
+{{- end }}
+{{- if .Values.monitoring.prometheusRules }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ $name }}-alerts
+  labels: {{- include "gumaweb.labels" . | nindent 4 }}
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: gumaweb.api
+      rules:
+        - alert: GumaWebApiHighErrorRate
+          expr: |
+            sum(rate(gumaweb_http_requests_total{status=~"5.."}[5m]))
+              / clamp_min(sum(rate(gumaweb_http_requests_total[5m])), 1) > 0.05
+          for: 10m
+          labels: { severity: critical }
+          annotations: { summary: "GumaWeb API 5xx rate above 5%" }
+        - alert: GumaWebApiSlow
+          expr: |
+            histogram_quantile(0.95, sum by (le) (rate(gumaweb_http_request_duration_seconds_bucket[5m]))) > 1
+          for: 15m
+          labels: { severity: warning }
+          annotations: { summary: "GumaWeb API p95 latency above 1s" }
+        - alert: GumaWebApiDown
+          expr: absent(up{job=~".*{{ $name }}-api.*"} == 1)
+          for: 5m
+          labels: { severity: critical }
+          annotations: { summary: "No healthy GumaWeb API targets" }
+    - name: gumaweb.jobs
+      rules:
+        - alert: GumaWebCronJobFailed
+          expr: kube_job_status_failed{namespace="{{ .Release.Namespace }}", job_name=~"{{ $name }}-(outreach|factory).*"} > 0
+          for: 5m
+          labels: { severity: warning }
+          annotations: { summary: "A GumaWeb factory or outreach job failed" }
+{{- end }}

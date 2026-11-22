@@ -1,0 +1,41 @@
+slug: plumbing-modern-v1
+name: Plumbing - Modern
+category: construction
+version: 1
+default: false
+industries: [plumbing]
+description: Friendly, phone-first layout for home service trades.
+theme:
+  palette:
+    primary: "#0369a1"
+    primary_contrast: "#ffffff"
+    accent: "#0c2a3d"
+    background: "#ffffff"
+    surface: "#f0f7fb"
+    text: "#0f1d26"
+    muted: "#46606f"
+    border: "#dbe8ef"
+  fonts:
+    heading: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'
+    body: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'
+  radius: 12px
+pages:
+  - slug: home
+    sections:
+      - {component: hero, variant: modern}
+      - {component: services, variant: cards}
+      - {component: faq, variant: standard}
+      - {component: cta, variant: premium}
+  - slug: about
+    sections:
+      - {component: about, variant: standard}
+  - slug: services
+    sections:
+      - {component: services, variant: accordion}
+      - {component: cta, variant: banner}
+  - slug: faq
+    sections:
+      - {component: faq, variant: standard}
+  - slug: contact
+    sections:
+      - {component: contact, variant: split}

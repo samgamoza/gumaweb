@@ -1,0 +1,31 @@
+# helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+# helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+#   -n guma-monitoring -f kubernetes/monitoring/kube-prometheus-stack-values.yaml
+prometheus:
+  prometheusSpec:
+    retention: 15d
+    # Pick up ServiceMonitors/PrometheusRules from the gumaweb chart (label release=kube-prometheus-stack).
+    serviceMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources: { requests: { storage: 50Gi } }
+
+alertmanager:
+  config:
+    route:
+      receiver: ops
+      group_by: [alertname, namespace]
+    receivers:
+      - name: ops
+        # Fill in an email/Slack/webhook receiver for the operations team.
+
+grafana:
+  adminPassword: ""            # set via --set or an existing secret; never commit
+  defaultDashboardsEnabled: true
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      url: http://loki-gateway.guma-monitoring.svc.cluster.local

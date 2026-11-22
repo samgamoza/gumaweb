@@ -1,0 +1,9 @@
+<section class="section cta cta--banner">
+  <div class="container cta__inner">
+    <div>
+      <h2>{{ block.get('heading') }}</h2>
+      {% if block.get('text') %}<p>{{ block.get('text') }}</p>{% endif %}
+    </div>
+    <a class="btn btn--light" href="{{ link(block.get('button_target')) }}">{{ block.get('button_label') }}</a>
+  </div>
+</section>

@@ -1,0 +1,47 @@
+{{- $name := include "gumaweb.fullname" . -}}
+{{- $sel := dict "root" . "component" "portal" -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}-portal
+  labels: {{- include "gumaweb.labels" . | nindent 4 }}
+    app.kubernetes.io/component: portal
+spec:
+  {{- if not .Values.portal.autoscaling.enabled }}
+  replicas: {{ .Values.portal.replicas }}
+  {{- end }}
+  selector:
+    matchLabels: {{- include "gumaweb.selector" $sel | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "gumaweb.selector" $sel | nindent 8 }}
+    spec:
+      {{- include "gumaweb.podSecurity" . | nindent 6 }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: portal
+          # NEXT_PUBLIC_API_URL is baked in at image build time (--build-arg).
+          image: {{ include "gumaweb.image" (dict "root" . "name" .Values.portal.image) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports: [{ name: http, containerPort: 3000 }]
+          {{- include "gumaweb.containerSecurity" . | nindent 10 }}
+          readinessProbe:
+            httpGet: { path: /, port: http }
+          resources: {{- toYaml .Values.portal.resources | nindent 12 }}
+          volumeMounts:
+            - { name: cache, mountPath: /app/.next/cache }
+      volumes:
+        - name: cache
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}-portal
+  labels: {{- include "gumaweb.labels" . | nindent 4 }}
+    app.kubernetes.io/component: portal
+spec:
+  selector: {{- include "gumaweb.selector" $sel | nindent 4 }}
+  ports: [{ name: http, port: 80, targetPort: http }]

@@ -1,0 +1,38 @@
+{{- if .Values.ingress.enabled }}
+{{- $name := include "gumaweb.fullname" . -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $name }}
+  labels: {{- include "gumaweb.labels" . | nindent 4 }}
+  annotations:
+    cert-manager.io/cluster-issuer: {{ .Values.ingress.clusterIssuer }}
+    {{- toYaml .Values.ingress.annotations | nindent 4 }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  tls:
+    - hosts: [{{ .Values.global.apiHost | quote }}, {{ .Values.global.portalHost | quote }}]
+      secretName: {{ $name }}-app-tls
+    # Wildcard certificate for every generated site (requires a DNS-01 ClusterIssuer).
+    - hosts: [{{ printf "*.%s" .Values.global.domain | quote }}]
+      secretName: {{ $name }}-sites-wildcard-tls
+  rules:
+    - host: {{ .Values.global.apiHost | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend: { service: { name: {{ $name }}-api, port: { name: http } } }
+    - host: {{ .Values.global.portalHost | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend: { service: { name: {{ $name }}-portal, port: { name: http } } }
+    - host: {{ printf "*.%s" .Values.global.domain | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend: { service: { name: {{ $name }}-sites, port: { name: http } } }
+{{- end }}

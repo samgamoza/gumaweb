@@ -1,0 +1,134 @@
+"""Operational commands (also used by Kubernetes Jobs/CronJobs).
+
+    python -m app.cli seed [--demo]
+    python -m app.cli sync-templates
+    python -m app.cli create-admin EMAIL PASSWORD
+    python -m app.cli generate [--limit N] [--publish]     # synchronous factory batch (small runs)
+    python -m app.cli enqueue [--limit N] [--no-publish]   # queue a factory batch for the workers
+    python -m app.cli worker [--once]                      # factory worker: jobs + event outbox relay
+    python -m app.cli dispatch-outreach
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import logging
+import sys
+
+from sqlalchemy import select
+
+from app.core.config import get_settings
+from app.core.logging import configure_logging
+from app.db.seed import seed_all
+from app.db.session import SessionLocal
+from app.domains.website_factory.enums import WebsiteStatus
+from app.models import Business, Website
+from app.schemas.website import GenerateBatchRequest
+from app.services.auth_service import AuthService
+from app.services.outreach_service import OutreachService
+from app.services.publishing_service import PublishingService
+from app.services.support import SYSTEM
+from app.services.template_service import TemplateService
+from app.services.website_service import WebsiteService
+from app.workers.factory_worker import FactoryWorker
+from app.workflows.website_generation import WebsiteGenerationWorkflow
+
+logger = logging.getLogger("gumaweb.cli")
+
+
+def cmd_generate(limit: int, publish: bool) -> dict[str, int]:
+    """Factory batch: generate (and optionally publish) sites for top-scoring candidates."""
+    settings = get_settings()
+    stats = {"generated": 0, "published": 0, "failed": 0}
+    with SessionLocal() as db:
+        has_site = select(Website.business_id)
+        ids = db.scalars(
+            select(Business.id)
+            .where(Business.generate_candidate.is_(True), Business.id.not_in(has_site))
+            .order_by(Business.score.desc())
+            .limit(limit)
+        ).all()
+        for business_id in ids:
+            try:
+                business = db.get(Business, business_id)
+                website = WebsiteGenerationWorkflow(db, settings).run(business)
+                stats["generated"] += 1
+                if publish and (website.quality_report or {}).get("publishable"):
+                    PublishingService(db, settings).publish(website, SYSTEM)
+                    stats["published"] += 1
+                db.commit()
+            except Exception:
+                logger.exception("generation failed for %s", business_id)
+                db.rollback()
+                stats["failed"] += 1
+        if publish:
+            # Retry sites generated earlier whose publish failed or was deferred.
+            pending = db.scalars(
+                select(Website).where(Website.status == WebsiteStatus.BLUEPRINT_READY).limit(limit)
+            ).all()
+            for website in pending:
+                if not (website.quality_report or {}).get("publishable"):
+                    continue
+                try:
+                    PublishingService(db, settings).publish(website, SYSTEM)
+                    db.commit()
+                    stats["published"] += 1
+                except Exception:
+                    logger.exception("publish failed for %s", website.subdomain)
+                    db.rollback()
+                    stats["failed"] += 1
+    return stats
+
+
+def main(argv: list[str] | None = None) -> int:
+    settings = get_settings()
+    configure_logging(settings.log_level, settings.log_json)
+    parser = argparse.ArgumentParser(prog="gumaweb")
+    sub = parser.add_subparsers(dest="command", required=True)
+    seed = sub.add_parser("seed")
+    seed.add_argument("--demo", action="store_true", help="also create fictional demo businesses")
+    sub.add_parser("sync-templates")
+    admin = sub.add_parser("create-admin")
+    admin.add_argument("email")
+    admin.add_argument("password")
+    gen = sub.add_parser("generate")
+    gen.add_argument("--limit", type=int, default=100)
+    gen.add_argument("--publish", action="store_true")
+    sub.add_parser("dispatch-outreach")
+    enqueue = sub.add_parser("enqueue")
+    enqueue.add_argument("--limit", type=int, default=1000)
+    enqueue.add_argument("--no-publish", action="store_true")
+    worker = sub.add_parser("worker")
+    worker.add_argument("--once", action="store_true", help="drain due jobs, relay events, then exit")
+    args = parser.parse_args(argv)
+
+    if args.command == "worker":
+        factory_worker = FactoryWorker(SessionLocal, settings)
+        if not args.once:
+            factory_worker.run_forever()
+            return 0
+        result: object = {"jobs": factory_worker.drain(), "events_relayed": factory_worker.relay_events()}
+    elif args.command == "enqueue":
+        with SessionLocal() as db:
+            result = WebsiteService(db, settings).enqueue_batch(
+                GenerateBatchRequest(limit=args.limit, publish=not args.no_publish)).model_dump()
+    elif args.command == "generate":
+        result = cmd_generate(args.limit, args.publish)
+    else:
+        with SessionLocal() as db:
+            if args.command == "seed":
+                result = seed_all(db, settings, demo=args.demo)
+            elif args.command == "sync-templates":
+                result = TemplateService(db, settings).sync_from_disk(SYSTEM).model_dump()
+            elif args.command == "create-admin":
+                user = AuthService(db).ensure_admin(args.email, args.password)
+                result = {"admin": user.email}
+            else:
+                result = OutreachService(db, settings).dispatch_due().model_dump()
+    print(json.dumps(result, default=str))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
