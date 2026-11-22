@@ -300,3 +300,29 @@ export interface ApiKey { id: string; name: string; prefix: string; read_only: b
 export interface Webhook { id: string; url: string; events: string[]; active: boolean; consecutive_failures: number; created_at: string }
 
 export interface Delivery { id: string; endpoint_id: string; event_type: string; status: string; attempts: number; response_status: number | null; last_error: string | null; created_at: string }
+
+// --- Phase 5 ---------------------------------------------------------------------------------
+
+export interface PresenceAsset { name: string; label: string; width: number; height: number; tier: "basic" | "full"; locked: boolean }
+
+export interface PresencePost { key: string; title: string; caption: string; card_headline: string; card_subline: string }
+
+export interface GooglePack {
+  name: string; name_issues: string[]; primary_category: string | null; additional_categories: string[];
+  description: string; description_issues: string[]; website: string; phone: string | null; address: string | null;
+  hours: string[]; hours_missing: boolean; services: { name: string; description: string }[];
+  posts: { key: string; text: string; button: string }[]; checklist: { key: string; label: string }[];
+}
+
+export interface SeoProfile {
+  nap: { name: string; address: string | null; phone_local: string | null; phone_international: string | null };
+  consistency_issues: string[]; keywords: { phrase: string; page: string }[];
+  citations: { key: string; name: string; url: string; why: string; status: "listed" | "missing" | "unknown" }[];
+  site_score: number | null; content_gaps: { key: string; message: string; impact: string }[];
+}
+
+export interface PresenceKit {
+  version: number; generated_at: string; brand: Record<string, string>; tiers: { basic: boolean; full: boolean };
+  assets: PresenceAsset[]; social: { bios: Record<string, string>; hashtags: string[]; posts: PresencePost[] };
+  google: GooglePack | null; seo: SeoProfile | null; checklist: Record<string, string>;
+}

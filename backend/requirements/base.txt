@@ -16,3 +16,6 @@ redis>=5.2
 httpx>=0.28
 prometheus-client>=0.21
 tzdata>=2024.1  # IANA zones for booking (Windows / slim images lack a system tz database)
+pillow>=11.3  # Phase 5: social/Google Business images (PNG/JPEG) rendered locally
+dnspython>=2.7  # Phase 5: custom-domain verification and DNS checks
+cryptography>=44  # Phase 5: DKIM keys for business email

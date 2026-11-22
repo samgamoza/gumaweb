@@ -13,6 +13,8 @@ class JobKind(StrEnum):
     RUN_AUTOMATION = "run_automation"  # Phase 4
     DELIVER_WEBHOOK = "deliver_webhook"  # Phase 4
     SUMMARIZE_CALL = "summarize_call"  # Phase 4
+    GENERATE_PRESENCE = "generate_presence"  # Phase 5
+    CHECK_DOMAINS = "check_domains"  # Phase 5
 
 
 class JobStatus(StrEnum):

@@ -18,6 +18,10 @@ class Feature(StrEnum):
     AUTOMATION = "automation"  # Phase 4
     INTEGRATIONS = "integrations"  # Phase 4: API keys + webhooks (Guma OS)
     VOICE_RECEPTIONIST = "voice_receptionist"  # Phase 4
+    SOCIAL_KIT = "social_kit"  # Phase 5: logo, profile picture, cover, bios (every plan)
+    PRESENCE_KIT = "presence_kit"  # Phase 5: posts, stories, Google Business pack, SEO profile, ZIP
+    CUSTOM_DOMAIN = "custom_domain"  # Phase 5
+    BUSINESS_EMAIL = "business_email"  # Phase 5
 
 
 class PlanUpgradeRequired(GumaWebError):

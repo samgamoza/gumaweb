@@ -12,6 +12,7 @@ from app.api.v1.endpoints import (
     guma_os,
     health,
     outreach,
+    presence,
     public,
     templates,
     websites,
@@ -23,3 +24,4 @@ for module in (auth, businesses, templates, websites, claims, customer, engageme
     api_router.include_router(module.router)
 api_router.include_router(guma_os.router)
 api_router.include_router(guma_os.gateway)
+api_router.include_router(presence.router)

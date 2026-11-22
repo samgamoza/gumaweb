@@ -89,6 +89,17 @@ def _summarize_call(db: Session, settings: Settings, payload: dict[str, Any]) ->
     return VoiceService(db, settings).polish_summary(uuid.UUID(payload["call_id"]))
 
 
+def _presence(db: Session, settings: Settings, payload: dict[str, Any]) -> dict[str, Any]:
+    from app.services.presence_service import PresenceService
+
+    business = db.get(Business, uuid.UUID(payload["business_id"]))
+    if business is None or business.website_record is None:
+        return {"skipped": "business or website deleted"}
+    kit = PresenceService(db, settings).generate(business)
+    db.commit()
+    return {"presence_version": kit.version}
+
+
 HANDLERS: dict[JobKind, Handler] = {
     JobKind.GENERATE_WEBSITE: _generate,
     JobKind.REGENERATE_WEBSITE: _regenerate,
@@ -96,6 +107,7 @@ HANDLERS: dict[JobKind, Handler] = {
     JobKind.RUN_AUTOMATION: _automation,
     JobKind.DELIVER_WEBHOOK: _webhook,
     JobKind.SUMMARIZE_CALL: _summarize_call,
+    JobKind.GENERATE_PRESENCE: _presence,
 }
 
 

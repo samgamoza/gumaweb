@@ -39,9 +39,11 @@ def test_batch_generation_runs_through_queue_and_workers(client, admin_headers, 
     assert client.get("/api/v1/admin/jobs/stats", headers=admin_headers).json()["queued"] == 3
 
     processed = FactoryWorker(session_factory, settings, worker_id="test-worker").drain()
-    assert processed == 3
+    assert processed == 6  # 3 websites + the 3 presence kits their publishing queued (Phase 5)
     jobs = client.get("/api/v1/admin/jobs", headers=admin_headers).json()
-    assert {j["status"] for j in jobs} == {"succeeded"} and all(j["result"]["published"] for j in jobs)
+    generation = [j for j in jobs if j["kind"] == "generate_website"]
+    assert {j["status"] for j in jobs} == {"succeeded"} and len(generation) == 3
+    assert all(j["result"]["published"] for j in generation)
 
     websites = client.get("/api/v1/websites", headers=admin_headers).json()["items"]
     assert len(websites) == 3 and {w["status"] for w in websites} == {"published"}
@@ -183,4 +185,5 @@ def test_customer_cannot_attach_library_free_hero_from_other_business(client, ad
     own = client.put("/api/v1/customer/content", headers=headers_b, json={
         "section_key": "hero", "updates": {"image": {"asset_id": library, "alt": ""}}})
     assert own.status_code == 200
-    assert db.query(FactoryJob).count() == 0  # synchronous path does not touch the queue
+    # the synchronous path does not queue generation (publishing still queues the presence kit)
+    assert db.query(FactoryJob).filter(FactoryJob.kind != "generate_presence").count() == 0

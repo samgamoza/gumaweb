@@ -20,9 +20,11 @@ from app.domains.business_discovery.lifecycle import advance
 from app.domains.publishing.enums import DeploymentStatus
 from app.domains.publishing.renderer import RenderContext
 from app.domains.website_factory.enums import WebsiteStatus
+from app.domains.website_factory.jobs import JobKind
 from app.models import Deployment, Website
 from app.repositories.repositories import WebsiteRepository
 from app.services.asset_service import AssetService, extension_for
+from app.services.job_queue import JobQueue
 from app.services.providers import providers
 from app.services.support import Actor, EventType, audit, record_event
 
@@ -115,6 +117,9 @@ class PublishingService:
         website.business.status = advance(website.business.status, BusinessStatus.PUBLISHED)
         record_event(self.db, EventType.WEBSITE_PUBLISHED, "website", website.id,
                      {"version": version, "url": website.url})
+        # Phase 5: the presence kit is rebuilt from the published facts (copy only; images render lazily).
+        JobQueue(self.db).enqueue(JobKind.GENERATE_PRESENCE, {"business_id": str(website.business_id)},
+                                  dedupe_key=f"presence:{website.business_id}", priority=120)
         audit(self.db, actor, AuditAction.WEBSITE_PUBLISHED, "website", website.id, {"version": version})
         self.db.flush()
         return deployment

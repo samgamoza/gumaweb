@@ -25,11 +25,16 @@ from app.models.guma_os import (
 )
 from app.models.outreach import OutreachCampaign, OutreachEvent, OutreachMessage, OutreachSuppression
 from app.models.platform import AuditLog, DomainEvent, SiteEvent
+from app.models.presence import CustomDomain, Mailbox, MailDomain, PresenceKit
 from app.models.template import Template, TemplateComponent
 from app.models.user import User
 from app.models.website import Deployment, MediaAsset, SeoMetadata, Website, WebsiteContent
 
 __all__ = [
+    "CustomDomain",
+    "MailDomain",
+    "Mailbox",
+    "PresenceKit",
     "AIGeneration",
     "ApiKey",
     "AutomationRule",
