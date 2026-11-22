@@ -14,7 +14,9 @@ from app.core.config import Settings, get_settings
 from app.core.exceptions import AuthenticationError, PermissionDeniedError
 from app.core.security import decode_token
 from app.db.session import get_db
+from app.domains.billing.entitlements import Feature
 from app.domains.customers.enums import STAFF_ROLES, UserRole
+from app.domains.integrations.webhooks import API_KEY_PREFIX
 from app.models import User
 from app.schemas.common import PageParams
 from app.services.support import Actor
@@ -33,9 +35,12 @@ def client_ip(request: Request) -> str | None:
     return request.client.host if request.client else None
 
 
-def get_current_user(db: DbSession, token: Annotated[str | None, Depends(oauth2_scheme)]) -> User:
+def get_current_user(request: Request, db: DbSession,
+                     token: Annotated[str | None, Depends(oauth2_scheme)]) -> User:
     if not token:
         raise AuthenticationError("Not authenticated")
+    if token.startswith(API_KEY_PREFIX):
+        return _api_key_user(request, db, token)
     payload = decode_token(token, "access")
     try:
         user = db.get(User, uuid.UUID(payload["sub"]))
@@ -46,7 +51,33 @@ def get_current_user(db: DbSession, token: Annotated[str | None, Depends(oauth2_
     return user
 
 
+def _api_key_user(request: Request, db: Session, token: str) -> User:
+    """Guma OS integrations: a customer API key acts as its owner, limited to that business's
+    customer endpoints (staff routes reject the customer role) and optionally read-only."""
+    from app.services.entitlements import require_feature
+    from app.services.integration_service import IntegrationService
+
+    key = IntegrationService(db, get_settings()).authenticate(token)
+    if key is None:
+        raise AuthenticationError("Invalid or revoked API key")
+    require_feature(db, key.business_id, Feature.INTEGRATIONS)  # downgrades disable keys
+    if key.read_only and request.method not in ("GET", "HEAD", "OPTIONS"):
+        raise PermissionDeniedError("This API key is read-only")
+    user = db.get(User, key.user_id)
+    if user is None or not user.is_active:
+        raise AuthenticationError("API key owner is inactive")
+    request.state.api_key_id = key.id
+    return user
+
+
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+def human_only(request: Request, _user: CurrentUser) -> None:
+    """Sensitive operations (billing, credentials, API key/webhook management) need a login session.
+    Depends on CurrentUser so authentication (which marks API-key requests) always runs first."""
+    if getattr(request.state, "api_key_id", None):
+        raise PermissionDeniedError("This action requires signing in; API keys cannot perform it")
 
 
 def require_roles(*roles: UserRole) -> Callable[[User], User]:

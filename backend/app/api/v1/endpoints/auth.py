@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Request
 from fastapi.security import OAuth2PasswordRequestForm
 
-from app.api.deps import CurrentUser, DbSession, actor_for, client_ip
+from app.api.deps import CurrentUser, DbSession, actor_for, client_ip, human_only
 from app.core.rate_limit import get_rate_limiter
 from app.models import User
 from app.schemas.auth import ChangePasswordRequest, LoginRequest, RefreshRequest, TokenPair, UserRead
@@ -42,7 +42,7 @@ def me(user: CurrentUser) -> User:
     return user
 
 
-@router.post("/change-password", response_model=Message)
+@router.post("/change-password", response_model=Message, dependencies=[Depends(human_only)])
 def change_password(body: ChangePasswordRequest, request: Request, user: CurrentUser, db: DbSession) -> Message:
     AuthService(db).change_password(user, body.current_password, body.new_password, actor_for(request, user))
     return Message(message="Password updated")

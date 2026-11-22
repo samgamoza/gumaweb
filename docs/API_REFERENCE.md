@@ -132,6 +132,50 @@ Public endpoints (used by the site widgets, rate limited):
 | GET | `/public/booking/{token}` · POST `/public/booking/{token}/cancel` | Manage-link details / cancel |
 | POST | `/public/sites/{subdomain}/chat` | `{message ≤ 1000, session_token?}` → `{session_token, reply}` |
 
+## Phase 4: Guma OS (automations, receptionist, integrations)
+
+| Method | Path | Plan | Description |
+|---|---|---|---|
+| GET / POST | `/customer/automations` | Business+ | List / create a rule `{name, trigger, config, conditions, actions[≤5]}` (422 on invalid template or fields) |
+| GET | `/customer/automations/presets` | Business+ | Recommended rules |
+| POST | `/customer/automations/presets/{key}` | Business+ | Install a preset |
+| PATCH / DELETE | `/customer/automations/{id}` | Business+ | Enable/disable or edit / delete |
+| GET | `/customer/automations/runs` | Business+ | Run log with per-action results |
+| GET / PUT | `/customer/voice/settings` | Voice AI | `{enabled, phone_number, forward_number, take_messages}` (409 if the number is taken) |
+| POST | `/customer/voice/test-call` · `/customer/voice/test-call/{id}/turn` | Voice AI | Portal simulator → `{call_id, say, action, transfer_to}` |
+| GET | `/customer/voice/calls` | Voice AI | Call log: transcript, outcome, summary |
+| GET / POST | `/customer/integrations/api-keys` | Business+ (login only) | List / create `{name, read_only}` → `key` shown once |
+| DELETE | `/customer/integrations/api-keys/{id}` | Business+ (login only) | Revoke |
+| GET / POST | `/customer/integrations/webhooks` | Business+ (login only) | List / create `{url, events[]}` (422 for private or unsafe URLs) |
+| PATCH / DELETE | `/customer/integrations/webhooks/{id}` | Business+ (login only) | Update or re-enable / delete |
+| GET | `/customer/integrations/webhooks/{id}/secret` · POST `…/rotate-secret` | Business+ (login only) | Signing secret |
+| POST | `/customer/integrations/webhooks/{id}/test` | Business+ (login only) | Queue a signed `ping` |
+| GET | `/customer/integrations/deliveries` | Business+ (login only) | Delivery log |
+
+CRM contacts now include `lead_score`, `lead_temperature` and `score_reasons`.
+
+**API keys:** send `Authorization: Bearer gw_live_…` to any `/customer/*` endpoint. Read-only keys get `403` on writes,
+and "login only" endpoints reject keys with `403`.
+
+**Telephony gateway** (server-to-server, header `X-Voice-Gateway-Token`; `503 voice_gateway_disabled` if unset):
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/voice/inbound` | `{to, from}` → 201 `{call_id, say, action}` (404 if no enabled receptionist owns `to`) |
+| POST | `/voice/calls/{id}/turn` | `{text}` (ASR output) → `{say, action: continue\|hangup\|transfer, transfer_to}` (409 after the call ended) |
+| POST | `/voice/calls/{id}/end` | Caller hung up → call record with outcome and summary (idempotent) |
+
+**Verifying a webhook** (receiver side):
+```python
+import hashlib, hmac, time
+def verify(secret: str, body: bytes, header: str) -> bool:
+    parts = dict(p.split("=", 1) for p in header.split(","))
+    if abs(time.time() - int(parts["t"])) > 300:
+        return False
+    expected = hmac.new(secret.encode(), f"{parts['t']}.".encode() + body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, parts["v1"])
+```
+
 ## Outreach
 
 | Method | Path | Access | Description |

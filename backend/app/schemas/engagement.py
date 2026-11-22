@@ -31,6 +31,9 @@ class ContactRead(ORMModel):
     tags: list[str]
     notes: str | None
     last_activity_at: datetime | None
+    lead_score: int | None = None
+    lead_temperature: str | None = None
+    score_reasons: list[str] = []
     created_at: datetime
 
 

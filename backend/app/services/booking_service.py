@@ -14,16 +14,19 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings
 from app.core.exceptions import ConflictError, NotFoundError, ValidationFailedError
 from app.core.security import generate_url_token, hash_token
+from app.domains.automation.rules import Trigger
 from app.domains.billing.entitlements import Feature, has_feature
 from app.domains.booking.availability import BookingRules, available_slots, is_bookable, validate_rules
 from app.domains.booking.enums import BLOCKING_STATUSES, AppointmentStatus
 from app.domains.crm.enums import ActivityType, ContactSource
+from app.domains.integrations.webhooks import WebhookEvent
 from app.domains.website_factory.enums import WebsiteStatus
-from app.models import Appointment, BookingSettings, Business, Website
+from app.models import Appointment, BookingSettings, Business, Contact, Website
 from app.repositories.repositories import WebsiteRepository
 from app.services.crm_service import CrmService
 from app.services.entitlements import plan_for_business, refresh_site
 from app.services.notifications import EmailMessage
+from app.services.os_events import contact_context, emit
 from app.services.providers import providers
 from app.services.support import Actor, EventType, record_event
 
@@ -119,8 +122,37 @@ class BookingService:
         return available_slots(rules, day, int(service["duration_minutes"]), busy, now or datetime.now(UTC))
 
     def book(self, subdomain: str, data: dict[str, Any], now: datetime | None = None) -> tuple[Appointment, str]:
-        now = now or datetime.now(UTC)
+        """Public booking from the website widget."""
         website, _ = self._bookable_site(subdomain)
+        return self._book(website, data, now, source=ContactSource.BOOKING)
+
+    def book_for_business(self, business_id: uuid.UUID, data: dict[str, Any],
+                          source: ContactSource = ContactSource.PHONE) -> tuple[Appointment, str]:
+        """Internal channels (phone receptionist) share the same locked, validated booking path."""
+        website = WebsiteRepository(self.db).by_business(business_id)
+        if website is None:
+            raise NotFoundError("Website not found")
+        return self._book(website, data, None, source=source)
+
+    def booking_services(self, business_id: uuid.UUID) -> list[dict[str, Any]]:
+        row = self.db.get(BookingSettings, business_id)
+        features, _ = plan_for_business(self.db, business_id)
+        if row is None or not row.enabled or not has_feature(features, Feature.BOOKING):
+            return []
+        return list(row.services)
+
+    def slots_for_business(self, business_id: uuid.UUID, day: date, service_name: str,
+                           now: datetime | None = None) -> list[datetime]:
+        row = self.settings_for(business_id)
+        service = self._service(row, service_name)
+        rules = self.rules(row)
+        day_start = datetime.combine(day, datetime.min.time(), rules.tz)
+        busy = self._busy(business_id, day_start - timedelta(hours=12), day_start + timedelta(hours=36))
+        return available_slots(rules, day, int(service["duration_minutes"]), busy, now or datetime.now(UTC))
+
+    def _book(self, website: Website, data: dict[str, Any], now: datetime | None,
+              source: ContactSource) -> tuple[Appointment, str]:
+        now = now or datetime.now(UTC)
         row = self.settings_for(website.business_id, lock=True)
         service = self._service(row, data["service"])
         start: datetime = data["start"]
@@ -132,7 +164,7 @@ class BookingService:
 
         contact = self.crm.capture(
             website.business_id, name=data["name"], email=data.get("email"), phone=data.get("phone"),
-            source=ContactSource.BOOKING, activity=ActivityType.BOOKING,
+            source=source, activity=ActivityType.BOOKING,
             body=f"Booked {service['name']} for {start.astimezone(self.rules(row).tz):%a %d %b %Y %I:%M %p}",
             data={"service": service["name"], "starts_at": start.isoformat()},
         )
@@ -152,9 +184,22 @@ class BookingService:
                                 code="slot_taken") from exc
         record_event(self.db, EventType.APPOINTMENT_BOOKED, "appointment", appointment.id,
                      {"business_id": str(website.business_id), "status": appointment.status.value})
+        self._emit(Trigger.APPOINTMENT_BOOKED, WebhookEvent.APPOINTMENT_BOOKED, appointment, row)
         self.db.commit()
         self._notify_booked(website, row, appointment, token)
         return appointment, token
+
+    def appointment_context(self, appt: Appointment, row: BookingSettings) -> dict[str, Any]:
+        return {"id": str(appt.id), "service": appt.service_name, "when": self._local(row, appt.starts_at),
+                "starts_at": _aware(appt.starts_at).isoformat(), "status": appt.status.value,
+                "customer_name": appt.customer_name}
+
+    def _emit(self, trigger: Trigger, webhook: WebhookEvent, appt: Appointment, row: BookingSettings) -> None:
+        context: dict[str, Any] = {"appointment": self.appointment_context(appt, row)}
+        if appt.contact_id and (contact := self.db.get(Contact, appt.contact_id)):
+            context["contact"] = contact_context(contact)
+        emit(self.db, appt.business_id, trigger=trigger, webhook=webhook, subject_type="appointment",
+             subject_id=appt.id, context=context)
 
     def _local(self, row: BookingSettings, dt: datetime) -> str:
         return f"{_aware(dt).astimezone(self.rules(row).tz):%A, %d %B %Y at %I:%M %p}"
@@ -193,6 +238,8 @@ class BookingService:
             raise ConflictError("Past bookings cannot be cancelled online")
         appt.status = AppointmentStatus.CANCELLED
         appt.cancelled_at = datetime.now(UTC)
+        self._emit(Trigger.APPOINTMENT_CANCELLED, WebhookEvent.APPOINTMENT_CANCELLED, appt,
+                   self.settings_for(appt.business_id))
         if appt.contact_id:
             contact = self.crm.find(appt.business_id, appt.customer_email, appt.customer_phone)
             if contact:
@@ -231,6 +278,8 @@ class BookingService:
         appt.status = target
         if target == AppointmentStatus.CANCELLED:
             appt.cancelled_at = datetime.now(UTC)
+            self._emit(Trigger.APPOINTMENT_CANCELLED, WebhookEvent.APPOINTMENT_CANCELLED, appt,
+                       self.settings_for(business_id))
         self.db.commit()
         if appt.customer_email and target in (AppointmentStatus.CONFIRMED, AppointmentStatus.CANCELLED):
             row = self.settings_for(business_id)

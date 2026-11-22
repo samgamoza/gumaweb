@@ -38,6 +38,7 @@ secrets:
   s3SecretKey: ""
   smtpUser: ""
   smtpPassword: ""
+  voiceGatewayToken: ""   # Phase 4 telephony gateway shared secret; empty disables /api/v1/voice/*
   firstAdminEmail: admin@gumaweb.io
   firstAdminPassword: ""
 

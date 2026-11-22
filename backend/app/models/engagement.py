@@ -39,6 +39,10 @@ class Contact(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     tags: Mapped[list[Any]] = mapped_column(default=list)
     notes: Mapped[str | None] = mapped_column(Text)
     last_activity_at: Mapped[datetime | None] = mapped_column(index=True)
+    # Lead intelligence (Phase 4): explainable score, recomputed on every touch.
+    lead_score: Mapped[int | None] = mapped_column(Integer, index=True)
+    lead_temperature: Mapped[str | None] = mapped_column(String(16))
+    score_reasons: Mapped[list[Any]] = mapped_column(default=list)
 
     activities: Mapped[list[ContactActivity]] = relationship(
         back_populates="contact", cascade="all, delete-orphan", order_by="ContactActivity.occurred_at.desc()"

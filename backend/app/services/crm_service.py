@@ -19,9 +19,13 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.core.exceptions import ConflictError, NotFoundError, ValidationFailedError
+from app.domains.automation.rules import Trigger
 from app.domains.business_discovery.normalization import normalize_email, normalize_phone
 from app.domains.crm.enums import PIPELINE, ActivityType, ContactSource, ContactStage
+from app.domains.crm.scoring import Touch, score_lead
+from app.domains.integrations.webhooks import WebhookEvent
 from app.models import Contact, ContactActivity
+from app.services.os_events import contact_context, emit
 
 GENERIC_NAMES = {"website visitor", "chat visitor", ""}
 FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
@@ -54,6 +58,7 @@ class CrmService:
                 data: dict[str, Any] | None = None) -> Contact:
         email, phone = self._norm(email, phone)
         contact = self.find(business_id, email, phone)
+        is_new = contact is None
         if contact is None:
             contact = Contact(business_id=business_id, name=(name or "").strip()[:200] or "Website visitor",
                               email=email, phone=phone, source=source)
@@ -67,7 +72,40 @@ class CrmService:
                 contact.name = name.strip()[:200]
         self._log(contact, activity, body, data or {}, None)
         self.db.flush()
+        self.rescore(contact)
+        if is_new:
+            emit(self.db, business_id, trigger=Trigger.LEAD_CAPTURED, webhook=WebhookEvent.LEAD_CAPTURED,
+                 subject_type="contact", subject_id=contact.id, context={"contact": contact_context(contact)})
         return contact
+
+    # --- Lead intelligence ---------------------------------------------------------------
+    def rescore(self, contact: Contact, *, notify: bool = True) -> None:
+        """Recompute the explainable lead score; crossing into 'hot' fires automations/webhooks once
+        (`notify=False` for backfills, so historical contacts don't trigger a burst of alerts)."""
+        was_hot = contact.lead_temperature == "hot"
+        result = score_lead(
+            source=contact.source, stage=contact.stage, has_email=bool(contact.email),
+            has_phone=bool(contact.phone), value_cents=contact.value_cents,
+            touches=[Touch(a.type, a.body, a.occurred_at) for a in contact.activities],
+        )
+        contact.lead_score, contact.lead_temperature, contact.score_reasons = (
+            result.score, result.temperature, result.reasons)
+        self.db.flush()
+        if notify and result.temperature == "hot" and not was_hot:
+            emit(self.db, contact.business_id, trigger=Trigger.LEAD_BECAME_HOT, webhook=WebhookEvent.LEAD_HOT,
+                 subject_type="contact", subject_id=contact.id, context={"contact": contact_context(contact)})
+
+    def rescore_all(self, business_id: uuid.UUID | None = None) -> int:
+        """Backfill/refresh scores (recency decays without new touches); run nightly or after upgrading."""
+        stmt = select(Contact)
+        if business_id:
+            stmt = stmt.where(Contact.business_id == business_id)
+        count = 0
+        for contact in self.db.scalars(stmt.execution_options(yield_per=500)):
+            self.rescore(contact, notify=False)
+            count += 1
+        self.db.commit()
+        return count
 
     def _log(self, contact: Contact, type_: ActivityType, body: str | None, data: dict[str, Any],
              user_id: uuid.UUID | None) -> ContactActivity:
@@ -92,7 +130,8 @@ class CrmService:
             stmt = stmt.where(Contact.source == source)
         total = self.db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
         items = self.db.scalars(
-            stmt.order_by(Contact.last_activity_at.desc().nulls_last(), Contact.created_at.desc())
+            stmt.order_by(Contact.lead_score.desc().nulls_last(), Contact.last_activity_at.desc().nulls_last(),
+                          Contact.created_at.desc())
             .offset((page - 1) * page_size).limit(page_size)
         ).all()
         return items, total
@@ -114,6 +153,8 @@ class CrmService:
                           value_cents=data.get("value_cents"), tags=data.get("tags") or [], notes=data.get("notes"))
         self.db.add(contact)
         self._log(contact, ActivityType.NOTE, "Contact added manually", {}, user_id)
+        self.db.flush()
+        self.rescore(contact)
         self.db.commit()
         return contact
 
@@ -125,11 +166,19 @@ class CrmService:
                 raise ConflictError("Another contact already uses this email or phone", code="duplicate_contact")
             changes["email"], changes["phone"] = email, phone
         new_stage = changes.get("stage")
+        old_stage = contact.stage
         if new_stage and new_stage != contact.stage:
             self._log(contact, ActivityType.STAGE_CHANGE, f"{contact.stage.value} → {new_stage.value}",
                       {"from": contact.stage.value, "to": new_stage.value}, user_id)
         for field, value in changes.items():
             setattr(contact, field, value)
+        self.db.flush()
+        self.rescore(contact)
+        if new_stage and new_stage != old_stage:
+            emit(self.db, contact.business_id, trigger=Trigger.STAGE_CHANGED,
+                 webhook=WebhookEvent.CONTACT_STAGE_CHANGED, subject_type="contact", subject_id=contact.id,
+                 context={"contact": contact_context(contact), "from_stage": old_stage.value,
+                          "idempotency_suffix": f"{new_stage.value}:{datetime.now(UTC).isoformat()}"})
         self.db.commit()
         return contact
 
@@ -137,6 +186,8 @@ class CrmService:
         if type_ not in (ActivityType.NOTE, ActivityType.CALL, ActivityType.EMAIL, ActivityType.MEETING):
             raise ValidationFailedError("Only notes, calls, emails and meetings can be logged manually")
         activity = self._log(contact, type_, body, {}, user_id)
+        self.db.flush()
+        self.rescore(contact)
         self.db.commit()
         return activity
 

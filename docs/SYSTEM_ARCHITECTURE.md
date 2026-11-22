@@ -263,3 +263,80 @@ when the knowledge didn't cover HMO acceptance, an off-topic question handed off
 section to the contact page and a site-wide chat widget. Toggling a feature or changing plan rebuilds the blueprint,
 creates content for any new section, and republishes. Downgrading removes the modules from the live site and the public
 API. The widget JavaScript is vanilla, renders everything via `textContent`, and is emitted only on pages that use it.
+
+## 12. Phase 4: Guma OS Integration
+
+Doc 20 Phase 4 deliverables: **business automation, Voice AI, lead intelligence, Guma OS integration**. The plan
+catalog is cumulative (Free ⊂ Professional ⊂ Business Plus ⊂ AI ⊂ Voice AI). Business Plus adds lead intelligence,
+automation and integrations, and Voice AI adds the receptionist.
+
+### 12.1 One event fan-out (`services/os_events.py`)
+```text
+CRM capture / stage change / hot lead ─┐
+booking booked / cancelled ────────────┼─▶ emit(business, trigger, webhook event, context)   (same DB transaction)
+call completed ────────────────────────┘     ├─ plan has automation + an enabled rule → job RUN_AUTOMATION
+                                             └─ plan has integrations + subscribed endpoint → WebhookDelivery + job DELIVER_WEBHOOK
+```
+Side effects run in the worker through the durable job queue, so they get retries, backoff and crash recovery. A
+failing receiver or SMTP server never fails the visitor's request.
+
+### 12.2 Lead intelligence (`domains/crm/scoring.py`)
+An explainable 0–100 score computed on every touch. It weighs source (booking > phone > chat/form > manual),
+contactability, buying intent in English or Filipino ("how much", "magkano", "urgent", "today"), a booking made,
+repeat inbound touches, recency (decays after 7 days, penalized after 30), and qualification or deal value. Bands:
+hot ≥ 70, warm ≥ 40, cold, customer (won), closed (lost). Reasons are stored with the score and shown to the owner.
+Crossing into *hot* fires `lead_became_hot`. The CRM list sorts by score. Because recency decays without new touches,
+`gumaweb rescore-leads` refreshes every score without firing alerts. Run it nightly and once after upgrading, so
+pre-Phase-4 contacts get scored.
+
+### 12.3 Business automation (`domains/automation/rules.py`, `services/automation_service.py`)
+Each rule has a trigger, conditions, and up to 5 actions.
+- **Triggers:** `lead_captured`, `lead_became_hot`, `stage_changed`, `appointment_booked`, `appointment_cancelled`, `call_completed`, plus scheduled `appointment_reminder` (`hours_before`) and `contact_idle` (`idle_days`).
+- **Conditions:** sources, stages, minimum score, services.
+- **Actions:** email or SMS the customer, email the owner, set stage, add tag.
+
+Templates use a sandboxed Jinja environment and are validated on save. Every run inserts an `automation_runs` row
+keyed `rule:trigger:subject[:suffix]` (unique) inside a savepoint first. Replays, retries and overlapping ticks are
+no-ops, so a customer never receives a duplicate message. Idle follow-ups key on the last-activity timestamp, which
+means one follow-up per quiet period. `set_stage` writes directly and does not re-emit, so a rule cannot loop.
+Scheduled triggers run from the worker maintenance loop every minute (`automation_tick`, safe on every replica).
+Four presets are included: thank new leads, appointment reminder (24 h), hot lead alert, and idle follow-up (3 days).
+
+### 12.4 Voice AI receptionist (`domains/voice/dialog.py`, `services/voice_service.py`)
+```text
+PSTN/SIP ─▶ telephony gateway (Asterisk ARI + local faster-whisper ASR + Piper TTS; not in this repo)
+            POST /voice/inbound {to, from}  ─▶ greeting
+            POST /voice/calls/{id}/turn {text} ─▶ {say, action: continue|hangup|transfer, transfer_to}
+            POST /voice/calls/{id}/end          ─▶ outcome + summary
+```
+The dialog engine is a pure, deterministic state machine. Speech is "data in, words out" and the model only answers
+free-form questions. Flows:
+- **Intent:** classify the caller's request.
+- **Booking:** service → day ("tomorrow", "bukas", "Friday", ISO) → offer 3 real slots → name → confirm → book. It uses the same booking rules, row lock and unique index as the website.
+- **Questions:** answered from the chatbot knowledge base, with hand-off on low confidence.
+- **Message taking:** creates a CRM contact (source phone) and emails the owner.
+- **Transfer:** routes to the forward number.
+
+Callers may ask for any open time, not just the three offered; if it's taken, the three nearest openings are offered.
+After 2 misunderstood turns the receptionist falls back to taking a message, so callers never loop. Every call stores
+its transcript, outcome and duration. A deterministic summary is written the moment the call ends. A
+`summarize_call` job then replaces it with a model-written one if that passes the unsupported-claims check, so the
+caller never waits on the model (inline, this had added ~19 s of silence before "Goodbye" on CPU). Calls whose
+hang-up never arrives are closed as abandoned after an hour by worker maintenance. Completed calls emit `call_completed`. The gateway authenticates with
+`X-Voice-Gateway-Token` (constant-time compare) and returns `503` when unconfigured. The portal simulator runs the
+same engine (`is_test`, no outbound events).
+
+### 12.5 Guma OS integration layer (`domains/integrations/webhooks.py`, `services/integration_service.py`)
+- **API keys** (`gw_live_…`): only the SHA-256 hash is stored, and the key is shown once. A key acts as its owner on the customer API only; staff routes reject the customer role. Keys can be read-only, which blocks non-GET requests. They stop working when the plan loses integrations. Credential, key, webhook and billing changes require a real login session (`human_only`).
+- **Webhooks:** events `lead.captured`, `lead.hot`, `contact.stage_changed`, `appointment.booked`, `appointment.cancelled`, `call.completed` (plus a test `ping`). The body is `{id, type, created, data}`. Headers are `GumaWeb-Event`, `GumaWeb-Delivery` and `GumaWeb-Signature: t=<unix>,v1=<hex HMAC-SHA256(secret, "t.body")>` (5-minute tolerance). Per-endpoint secrets are derived (`HMAC(server key, endpoint id : version)`), never stored, and rotate by bumping the version.
+- **SSRF defence:** http(s) only, no userinfo, every resolved address must be public, HTTPS is required in production, the URL is re-validated at send time against DNS rebinding, and redirects are not followed.
+- **Delivery:** up to 6 attempts with exponential backoff, and the endpoint auto-disables after 20 consecutive failures. Delivery logs are visible in the portal.
+
+### 12.6 Grounding guard for model answers (chatbot and receptionist)
+The live receptionist check exposed a gap. qwen2.5:1.5b answered "We accept most health maintenance organizations"
+when the only relevant knowledge said "contact us to confirm the payment options". It also invented "ample parking".
+Phase 3's check only catches invented prices, years and ratings. `ungrounded_terms()` now also rejects answers whose
+content words are mostly absent from the retrieved knowledge, the question and the business name (≥ 4 novel terms
+and > 50 % of content words). Such answers are replaced by the hand-off message. Faithful paraphrases pass.
+**Known limit:** a lexical check cannot catch an improvised detail that reuses the caller's own words. For example,
+"braces for adults" is answered "yes" when the knowledge only lists braces.

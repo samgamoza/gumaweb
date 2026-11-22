@@ -14,6 +14,15 @@ from app.models.engagement import (
     KnowledgeEntry,
 )
 from app.models.factory import AIGeneration, FactoryJob
+from app.models.guma_os import (
+    ApiKey,
+    AutomationRule,
+    AutomationRun,
+    Call,
+    VoiceSettings,
+    WebhookDelivery,
+    WebhookEndpoint,
+)
 from app.models.outreach import OutreachCampaign, OutreachEvent, OutreachMessage, OutreachSuppression
 from app.models.platform import AuditLog, DomainEvent, SiteEvent
 from app.models.template import Template, TemplateComponent
@@ -22,6 +31,13 @@ from app.models.website import Deployment, MediaAsset, SeoMetadata, Website, Web
 
 __all__ = [
     "AIGeneration",
+    "ApiKey",
+    "AutomationRule",
+    "AutomationRun",
+    "Call",
+    "VoiceSettings",
+    "WebhookDelivery",
+    "WebhookEndpoint",
     "Appointment",
     "BookingSettings",
     "ChatConversation",

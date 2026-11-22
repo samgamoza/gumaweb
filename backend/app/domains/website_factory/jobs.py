@@ -10,6 +10,9 @@ class JobKind(StrEnum):
     GENERATE_WEBSITE = "generate_website"
     REGENERATE_WEBSITE = "regenerate_website"
     PUBLISH_WEBSITE = "publish_website"
+    RUN_AUTOMATION = "run_automation"  # Phase 4
+    DELIVER_WEBHOOK = "deliver_webhook"  # Phase 4
+    SUMMARIZE_CALL = "summarize_call"  # Phase 4
 
 
 class JobStatus(StrEnum):

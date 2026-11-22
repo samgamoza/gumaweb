@@ -68,10 +68,34 @@ def _publish(db: Session, settings: Settings, payload: dict[str, Any]) -> dict[s
     return {"website_id": str(website.id), "version": deployment.version}
 
 
+def _automation(db: Session, settings: Settings, payload: dict[str, Any]) -> dict[str, Any]:
+    from app.domains.automation.rules import Trigger
+    from app.services.automation_service import AutomationService
+
+    return AutomationService(db, settings).run_trigger(
+        uuid.UUID(payload["business_id"]), Trigger(payload["trigger"]), payload["subject_type"],
+        payload["subject_id"], payload.get("context") or {})
+
+
+def _webhook(db: Session, settings: Settings, payload: dict[str, Any]) -> dict[str, Any]:
+    from app.services.integration_service import IntegrationService
+
+    return IntegrationService(db, settings).deliver(uuid.UUID(payload["delivery_id"]))
+
+
+def _summarize_call(db: Session, settings: Settings, payload: dict[str, Any]) -> dict[str, Any]:
+    from app.services.voice_service import VoiceService
+
+    return VoiceService(db, settings).polish_summary(uuid.UUID(payload["call_id"]))
+
+
 HANDLERS: dict[JobKind, Handler] = {
     JobKind.GENERATE_WEBSITE: _generate,
     JobKind.REGENERATE_WEBSITE: _regenerate,
     JobKind.PUBLISH_WEBSITE: _publish,
+    JobKind.RUN_AUTOMATION: _automation,
+    JobKind.DELIVER_WEBHOOK: _webhook,
+    JobKind.SUMMARIZE_CALL: _summarize_call,
 }
 
 
@@ -139,6 +163,21 @@ class FactoryWorker:
             db.commit()
             return len(events)
 
+    def automation_tick(self) -> dict[str, int]:
+        """Scheduled automations (reminders, idle follow-ups) and stale-call cleanup; idempotent, safe on
+        every replica."""
+        from app.services.automation_service import AutomationService
+        from app.services.voice_service import VoiceService
+
+        try:
+            with self.session_factory() as db:
+                stats = AutomationService(db, self.settings).tick()
+                stats["stale_calls_closed"] = VoiceService(db, self.settings).close_stale()
+                return stats
+        except Exception:
+            logger.exception("automation tick failed")
+            return {}
+
     def run_forever(self, poll_seconds: float = 2.0) -> None:
         signal.signal(signal.SIGTERM, self.stop)
         signal.signal(signal.SIGINT, self.stop)
@@ -150,6 +189,7 @@ class FactoryWorker:
                     recovered = JobQueue(db).recover_stale()
                 if recovered:
                     logger.warning("requeued %d stale jobs", recovered)
+                self.automation_tick()
                 last_maintenance = time.monotonic()
             try:
                 relayed = self.relay_events()

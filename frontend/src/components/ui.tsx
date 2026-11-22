@@ -103,7 +103,7 @@ const STATUS_TONE: Record<string, keyof typeof TONES> = {
 export function Badge({ children, tone }: { children: ReactNode; tone?: keyof typeof TONES }) {
   const key = tone ?? STATUS_TONE[String(children)] ?? "gray";
   return (
-    <span className={cx("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset", TONES[key])}>
+    <span className={cx("inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset", TONES[key])}>
       {typeof children === "string" ? children.replaceAll("_", " ") : children}
     </span>
   );

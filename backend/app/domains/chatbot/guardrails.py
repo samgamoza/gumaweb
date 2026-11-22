@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 
+from app.domains.chatbot.knowledge import tokenize
 from app.domains.website_factory.content_quality import fabricated_claims
 
 MAX_MESSAGE_CHARS = 1000
@@ -36,3 +37,29 @@ def unsupported_claims(answer: str, knowledge_text: str) -> list[str]:
     """Claims (prices, years, ratings, awards, statistics) in the answer that the knowledge base doesn't contain."""
     known = set(fabricated_claims(knowledge_text))
     return [claim for claim in fabricated_claims(answer) if claim not in known]
+
+
+# Conversational glue a grounded answer may add without new facts.
+_GLUE = frozenset({
+    "yes", "no", "not", "sure", "happy", "help", "glad", "thanks", "thank", "welcome", "contact", "call", "visit",
+    "reach", "ask", "let", "know", "would", "like", "need", "also", "just", "more", "information", "details",
+    "office", "team", "clinic", "shop", "store", "currently", "available", "confirm", "options", "anything", "else",
+    "feel", "free", "get", "touch", "hello", "hi", "sorry", "unfortunately", "however", "great", "any", "all",
+})
+MAX_NOVEL_RATIO = 0.5
+MIN_NOVEL_TERMS = 4
+
+
+def ungrounded_terms(answer: str, knowledge_text: str, question: str, business: str = "") -> list[str]:
+    """Content words in the answer found in neither the knowledge, the question, nor the business name.
+
+    Small local models paraphrase *and* improvise ("We accept most health maintenance organizations" from
+    "Contact us to confirm the payment options"). An answer that is mostly new vocabulary is treated as
+    ungrounded; an empty list means the answer is grounded.
+    """
+    known = set(tokenize(f"{knowledge_text} {question} {business}")) | _GLUE
+    words = tokenize(answer)
+    novel = [w for w in words if w not in known and w.rstrip("s") not in known and f"{w}s" not in known]
+    if len(novel) >= MIN_NOVEL_TERMS and len(novel) > MAX_NOVEL_RATIO * max(len(words), 1):
+        return novel
+    return []

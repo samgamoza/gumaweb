@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, File, Form, Request, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Request, Response, UploadFile, status
 
-from app.api.deps import AppSettings, CustomerUser, DbSession, actor_for
+from app.api.deps import AppSettings, CustomerUser, DbSession, actor_for, human_only
 from app.core.exceptions import NotFoundError
 from app.models import Lead, MediaAsset, Subscription
 from app.schemas.customer import (
@@ -69,7 +69,8 @@ def subscription(user: CustomerUser, db: DbSession, settings: AppSettings) -> Su
     return BillingService(db).current(customer)
 
 
-@router.post("/subscription", response_model=SubscriptionRead, summary="Change plan")
+@router.post("/subscription", response_model=SubscriptionRead, summary="Change plan",
+             dependencies=[Depends(human_only)])
 def change_plan(body: ChangePlanRequest, request: Request, user: CustomerUser, db: DbSession,
                 settings: AppSettings) -> Subscription:
     customer = CustomerService(db, settings).for_user(user)

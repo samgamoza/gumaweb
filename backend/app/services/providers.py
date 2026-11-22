@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import httpx
+
 from app.core.config import get_settings
 from app.domains.publishing.renderer import SiteRenderer
 from app.domains.publishing.storage import LocalSiteStorage, S3SiteStorage, SiteStorage
@@ -20,6 +22,7 @@ class Providers:
         self._sms: SmsSender | None = None
         self._storage: SiteStorage | None = None
         self._renderer: SiteRenderer | None = None
+        self._http: httpx.Client | None = None
 
     @property
     def email(self) -> EmailSender:
@@ -67,6 +70,17 @@ class Providers:
     @renderer.setter
     def renderer(self, value: SiteRenderer) -> None:
         self._renderer = value
+
+    @property
+    def http(self) -> httpx.Client:
+        """Outbound HTTP for webhooks (tests swap in an httpx.MockTransport client)."""
+        if self._http is None:
+            self._http = httpx.Client(timeout=get_settings().webhook_timeout_seconds, follow_redirects=False)
+        return self._http
+
+    @http.setter
+    def http(self, value: httpx.Client) -> None:
+        self._http = value
 
     def reset(self) -> None:
         self.__init__()  # type: ignore[misc]

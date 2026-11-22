@@ -14,6 +14,10 @@ class Feature(StrEnum):
     BOOKING = "booking"
     AI_CHATBOT = "ai_chatbot"
     KNOWLEDGE_BASE = "knowledge_base"
+    LEAD_INTELLIGENCE = "lead_intelligence"  # Phase 4
+    AUTOMATION = "automation"  # Phase 4
+    INTEGRATIONS = "integrations"  # Phase 4: API keys + webhooks (Guma OS)
+    VOICE_RECEPTIONIST = "voice_receptionist"  # Phase 4
 
 
 class PlanUpgradeRequired(GumaWebError):

@@ -6,7 +6,8 @@ GumaWeb finds local businesses without a website, generates a professional site 
 it at `<business>.gumaweb.io`, invites the owner to claim it for free, and converts claimed sites into
 recurring customers. It is local-first: self-hosted PostgreSQL, Redis, MinIO and SMTP, and local models
 (Qwen / DeepSeek via Ollama or vLLM; FLUX/SDXL optional) behind strict quality gates.
-**Status:** Phases 1 (MVP), 2 (Factory Scale) and 3 (Platform Expansion: CRM, booking, AI chatbot) are implemented.
+**Status:** Phases 1 (MVP), 2 (Factory Scale), 3 (Platform Expansion: CRM, booking, AI chatbot) and 4 (Guma OS:
+lead intelligence, business automation, AI voice receptionist, API keys and signed webhooks) are implemented.
 
 ```text
 Directory record → Score → Profile → Template → Content + SEO → QA gate → Publish → Outreach → Claim → Upgrade

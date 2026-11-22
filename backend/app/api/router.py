@@ -9,6 +9,7 @@ from app.api.v1.endpoints import (
     claims,
     customer,
     engagement,
+    guma_os,
     health,
     outreach,
     public,
@@ -20,3 +21,5 @@ api_router = APIRouter()
 for module in (auth, businesses, templates, websites, claims, customer, engagement, outreach, billing, analytics, admin,
                public, health):
     api_router.include_router(module.router)
+api_router.include_router(guma_os.router)
+api_router.include_router(guma_os.gateway)

@@ -244,6 +244,7 @@ export type Stage = "new" | "contacted" | "qualified" | "won" | "lost";
 export interface Contact {
   id: string; name: string; email: string | null; phone: string | null; source: string; stage: Stage;
   value_cents: number | null; tags: string[]; notes: string | null; last_activity_at: string | null; created_at: string;
+  lead_score: number | null; lead_temperature: string | null; score_reasons: string[];
 }
 
 export interface Activity { id: string; type: string; body: string | null; data: Record<string, unknown>; occurred_at: string }
@@ -273,3 +274,29 @@ export interface Conversation { id: string; message_count: number; lead_captured
 export interface ConversationDetail extends Conversation { messages: { role: string; content: string; strategy: string | null; created_at: string }[] }
 
 export interface FeatureAccess { plan: string; features: Record<string, boolean> }
+
+// --- Phase 4 ---------------------------------------------------------------------------------
+
+export interface AutomationAction { type: string; subject?: string; body?: string; stage?: string; tag?: string }
+
+export interface Automation {
+  id: string; name: string; trigger: string; config: Record<string, number>; conditions: Record<string, unknown>;
+  actions: AutomationAction[]; enabled: boolean; preset_key: string | null; created_at: string;
+}
+
+export interface Preset { key: string; name: string; trigger: string; config: Record<string, number>; conditions: Record<string, unknown>; actions: AutomationAction[] }
+
+export interface AutomationRun { id: string; rule_id: string; subject_type: string; status: string; results: { type: string; status: string; reason?: string }[]; created_at: string }
+
+export interface VoiceSettings { enabled: boolean; phone_number: string | null; forward_number: string | null; take_messages: boolean }
+
+export interface Call {
+  id: string; caller_number: string | null; is_test: boolean; status: string; outcome: string | null; summary: string | null;
+  transcript: { speaker: string; text: string }[]; started_at: string; duration_seconds: number | null;
+}
+
+export interface ApiKey { id: string; name: string; prefix: string; read_only: boolean; last_used_at: string | null; created_at: string; key?: string }
+
+export interface Webhook { id: string; url: string; events: string[]; active: boolean; consecutive_failures: number; created_at: string }
+
+export interface Delivery { id: string; endpoint_id: string; event_type: string; status: string; attempts: number; response_status: number | null; last_error: string | null; created_at: string }

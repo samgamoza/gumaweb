@@ -12,6 +12,9 @@ const NAV = [
   { href: "/portal/leads", label: "Leads & CRM" },
   { href: "/portal/bookings", label: "Bookings" },
   { href: "/portal/assistant", label: "AI assistant" },
+  { href: "/portal/receptionist", label: "Receptionist" },
+  { href: "/portal/automations", label: "Automations" },
+  { href: "/portal/integrations", label: "Integrations" },
 ];
 
 function Shell({ children }: { children: React.ReactNode }) {

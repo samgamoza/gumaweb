@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 
 from app.agents.base import LLMClient
 from app.agents.content_agent import extract_json
-from app.domains.chatbot.guardrails import unsupported_claims
+from app.domains.chatbot.guardrails import ungrounded_terms, unsupported_claims
 from app.domains.chatbot.knowledge import KnowledgeItem, bm25_rank, tokenize
 
 logger = logging.getLogger("gumaweb.ai.chat")
@@ -93,8 +93,14 @@ class ChatAgent:
         text = str(data.get("answer") or "").strip()
         if not text:
             return ChatAnswer(retrieval.text, "retrieval", retrieval.sources, **meta)
-        if unsupported_claims(text, json.dumps([f"{i.title} {i.content}" for i in top])):
+        knowledge_text = json.dumps([f"{i.title} {i.content}" for i in top])
+        if unsupported_claims(text, knowledge_text):
             logger.info("discarded chat answer with unsupported claims")
             return ChatAnswer(retrieval.text, "retrieval", retrieval.sources, **meta)
+        if novel := ungrounded_terms(text, knowledge_text, question, business):
+            # The model improvised, so retrieval likely missed too: hand off honestly rather than give a loosely
+            # matching snippet ("is parking available?" -> payment-options FAQ).
+            logger.info("discarded ungrounded chat answer (new terms: %s)", ", ".join(novel[:8]))
+            return ChatAnswer(handoff, "handoff", **meta)
         used = [top[n - 1].id for n in data.get("used", []) if isinstance(n, int) and 1 <= n <= len(top)]
         return ChatAnswer(text[:MAX_ANSWER_CHARS], "llm", used or [top[0].id], **meta)

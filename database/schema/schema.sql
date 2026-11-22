@@ -744,5 +744,153 @@ ALTER TABLE template_components ADD CONSTRAINT ck_template_components_componentt
 
 UPDATE alembic_version SET version_num='0003' WHERE alembic_version.version_num = '0002';
 
+-- Running upgrade 0003 -> 0004
+
+CREATE TABLE api_keys (
+    business_id UUID NOT NULL, 
+    user_id UUID NOT NULL, 
+    name VARCHAR(100) NOT NULL, 
+    prefix VARCHAR(16) NOT NULL, 
+    key_hash VARCHAR(64) NOT NULL, 
+    read_only BOOLEAN NOT NULL, 
+    last_used_at TIMESTAMP WITH TIME ZONE, 
+    revoked_at TIMESTAMP WITH TIME ZONE, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    id UUID NOT NULL, 
+    CONSTRAINT pk_api_keys PRIMARY KEY (id), 
+    CONSTRAINT fk_api_keys_business_id_businesses FOREIGN KEY(business_id) REFERENCES businesses (id) ON DELETE CASCADE, 
+    CONSTRAINT fk_api_keys_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_api_keys_key_hash UNIQUE (key_hash)
+);
+
+CREATE INDEX ix_api_keys_business_id ON api_keys (business_id);
+
+CREATE TABLE automation_rules (
+    business_id UUID NOT NULL, 
+    name VARCHAR(120) NOT NULL, 
+    trigger VARCHAR(32) NOT NULL, 
+    config JSONB NOT NULL, 
+    conditions JSONB NOT NULL, 
+    actions JSONB NOT NULL, 
+    enabled BOOLEAN NOT NULL, 
+    preset_key VARCHAR(64), 
+    id UUID NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    CONSTRAINT pk_automation_rules PRIMARY KEY (id), 
+    CONSTRAINT fk_automation_rules_business_id_businesses FOREIGN KEY(business_id) REFERENCES businesses (id) ON DELETE CASCADE, 
+    CONSTRAINT ck_automation_rules_trigger CHECK (trigger IN ('lead_captured', 'lead_became_hot', 'stage_changed', 'appointment_booked', 'appointment_cancelled', 'appointment_reminder', 'contact_idle', 'call_completed'))
+);
+
+CREATE INDEX ix_automation_rules_business_trigger ON automation_rules (business_id, trigger, enabled);
+
+CREATE TABLE voice_settings (
+    business_id UUID NOT NULL, 
+    enabled BOOLEAN NOT NULL, 
+    phone_number VARCHAR(32), 
+    forward_number VARCHAR(32), 
+    take_messages BOOLEAN NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    CONSTRAINT pk_voice_settings PRIMARY KEY (business_id), 
+    CONSTRAINT fk_voice_settings_business_id_businesses FOREIGN KEY(business_id) REFERENCES businesses (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_voice_settings_phone_number UNIQUE (phone_number)
+);
+
+CREATE TABLE webhook_endpoints (
+    business_id UUID NOT NULL, 
+    url VARCHAR(500) NOT NULL, 
+    events JSONB NOT NULL, 
+    secret_version INTEGER NOT NULL, 
+    active BOOLEAN NOT NULL, 
+    consecutive_failures INTEGER NOT NULL, 
+    id UUID NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    CONSTRAINT pk_webhook_endpoints PRIMARY KEY (id), 
+    CONSTRAINT fk_webhook_endpoints_business_id_businesses FOREIGN KEY(business_id) REFERENCES businesses (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_webhook_endpoints_business_id ON webhook_endpoints (business_id);
+
+CREATE TABLE automation_runs (
+    rule_id UUID NOT NULL, 
+    business_id UUID NOT NULL, 
+    idempotency_key VARCHAR(200) NOT NULL, 
+    subject_type VARCHAR(32) NOT NULL, 
+    subject_id VARCHAR(64) NOT NULL, 
+    status VARCHAR(16) NOT NULL, 
+    results JSONB NOT NULL, 
+    error TEXT, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    id UUID NOT NULL, 
+    CONSTRAINT pk_automation_runs PRIMARY KEY (id), 
+    CONSTRAINT fk_automation_runs_business_id_businesses FOREIGN KEY(business_id) REFERENCES businesses (id) ON DELETE CASCADE, 
+    CONSTRAINT fk_automation_runs_rule_id_automation_rules FOREIGN KEY(rule_id) REFERENCES automation_rules (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_automation_runs_idempotency_key UNIQUE (idempotency_key)
+);
+
+CREATE INDEX ix_automation_runs_business_id ON automation_runs (business_id);
+
+CREATE INDEX ix_automation_runs_created_at ON automation_runs (created_at);
+
+CREATE INDEX ix_automation_runs_rule_id ON automation_runs (rule_id);
+
+CREATE TABLE webhook_deliveries (
+    endpoint_id UUID NOT NULL, 
+    event_type VARCHAR(64) NOT NULL, 
+    payload JSONB NOT NULL, 
+    status VARCHAR(16) NOT NULL, 
+    attempts INTEGER NOT NULL, 
+    response_status INTEGER, 
+    last_error TEXT, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    delivered_at TIMESTAMP WITH TIME ZONE, 
+    id UUID NOT NULL, 
+    CONSTRAINT pk_webhook_deliveries PRIMARY KEY (id), 
+    CONSTRAINT fk_webhook_deliveries_endpoint_id_webhook_endpoints FOREIGN KEY(endpoint_id) REFERENCES webhook_endpoints (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_webhook_deliveries_created_at ON webhook_deliveries (created_at);
+
+CREATE INDEX ix_webhook_deliveries_endpoint_id ON webhook_deliveries (endpoint_id);
+
+CREATE TABLE calls (
+    business_id UUID NOT NULL, 
+    caller_number VARCHAR(32), 
+    is_test BOOLEAN NOT NULL, 
+    status VARCHAR(16) NOT NULL, 
+    state JSONB NOT NULL, 
+    transcript JSONB NOT NULL, 
+    outcome VARCHAR(16), 
+    summary TEXT, 
+    contact_id UUID, 
+    appointment_id UUID, 
+    started_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    ended_at TIMESTAMP WITH TIME ZONE, 
+    duration_seconds INTEGER, 
+    id UUID NOT NULL, 
+    CONSTRAINT pk_calls PRIMARY KEY (id), 
+    CONSTRAINT fk_calls_appointment_id_appointments FOREIGN KEY(appointment_id) REFERENCES appointments (id) ON DELETE SET NULL, 
+    CONSTRAINT fk_calls_business_id_businesses FOREIGN KEY(business_id) REFERENCES businesses (id) ON DELETE CASCADE, 
+    CONSTRAINT fk_calls_contact_id_contacts FOREIGN KEY(contact_id) REFERENCES contacts (id) ON DELETE SET NULL
+);
+
+CREATE INDEX ix_calls_business_started ON calls (business_id, started_at);
+
+ALTER TABLE contacts ADD COLUMN lead_score INTEGER;
+
+ALTER TABLE contacts ADD COLUMN lead_temperature VARCHAR(16);
+
+ALTER TABLE contacts ADD COLUMN score_reasons JSONB DEFAULT '[]' NOT NULL;
+
+CREATE INDEX ix_contacts_lead_score ON contacts (lead_score);
+
+ALTER TABLE factory_jobs DROP CONSTRAINT ck_factory_jobs_jobkind;
+
+ALTER TABLE factory_jobs ADD CONSTRAINT ck_factory_jobs_jobkind CHECK (kind IN ('generate_website', 'regenerate_website', 'publish_website', 'run_automation', 'deliver_webhook', 'summarize_call'));
+
+UPDATE alembic_version SET version_num='0004' WHERE alembic_version.version_num = '0003';
+
 COMMIT;
 

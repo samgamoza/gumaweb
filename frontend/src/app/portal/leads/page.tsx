@@ -8,6 +8,12 @@ import { API_URL, ApiError, api, money, tokens } from "@/lib/api";
 import type { Contact, ContactDetail, Page, PipelineStage, Stage } from "@/lib/types";
 
 const STAGES: Stage[] = ["new", "contacted", "qualified", "won", "lost"];
+const TEMP_TONE: Record<string, "red" | "amber" | "gray" | "green"> = { hot: "red", warm: "amber", cold: "gray", customer: "green", closed: "gray" };
+
+function ScoreBadge({ contact }: { contact: Contact }) {
+  if (contact.lead_score == null || !contact.lead_temperature) return null;
+  return <Badge tone={TEMP_TONE[contact.lead_temperature] ?? "gray"}>{contact.lead_temperature} · {contact.lead_score}</Badge>;
+}
 const STAGE_TONE: Record<Stage, "gray" | "blue" | "amber" | "green" | "red"> = {
   new: "blue", contacted: "amber", qualified: "amber", won: "green", lost: "gray",
 };
@@ -39,6 +45,12 @@ function ContactPanel({ id, onChanged }: { id: string; onChanged: () => void }) 
     <Card title={contact.name} actions={<Badge tone={STAGE_TONE[contact.stage]}>{contact.stage}</Badge>}>
       <div className="grid gap-4">
         <div className="text-sm text-stone-600">{[contact.email, contact.phone && `+${contact.phone}`].filter(Boolean).join(" · ") || "No contact details"}</div>
+        {contact.lead_score != null && (
+          <div className="rounded-lg bg-stone-50 p-3 text-sm">
+            <div className="mb-1 flex items-center gap-2 font-medium">Lead score <ScoreBadge contact={contact} /></div>
+            <ul className="list-disc pl-5 text-xs text-stone-600">{contact.score_reasons.map((r) => <li key={r}>{r}</li>)}</ul>
+          </div>
+        )}
         {error && <Alert>{error}</Alert>}
         <div className="flex flex-wrap gap-1.5">
           {STAGES.map((s) => (
@@ -157,10 +169,11 @@ function Leads() {
           {data && data.items.length === 0 ? (
             <Empty>No contacts yet. Inquiries from your website will appear here automatically.</Empty>
           ) : (
-            <Table head={["Contact", "Source", "Stage", "Last activity"]}>
+            <Table head={["Contact", "Score", "Source", "Stage", "Last activity"]}>
               {data?.items.map((c) => (
                 <tr key={c.id} onClick={() => setSelected(c.id)} className={cx("cursor-pointer hover:bg-stone-50", selected === c.id && "bg-brand-50")}>
                   <Td><div className="font-medium">{c.name}</div><div className="text-xs text-stone-500">{c.email ?? (c.phone && `+${c.phone}`)}</div></Td>
+                  <Td><ScoreBadge contact={c} /></Td>
                   <Td className="text-xs text-stone-600">{c.source.replaceAll("_", " ")}</Td>
                   <Td><Badge tone={STAGE_TONE[c.stage]}>{c.stage}</Badge></Td>
                   <Td className="whitespace-nowrap text-xs text-stone-500">{when(c.last_activity_at)}</Td>

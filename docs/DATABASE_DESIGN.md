@@ -77,6 +77,14 @@ erDiagram
 | Chatbot (P3) | `chatbot_settings` | Enabled, greeting, hand-off message, lead collection | PK `business_id` |
 | Chatbot (P3) | `knowledge_entries` | Website-derived and owner-written Q&A | `ix business_id` |
 | Chatbot (P3) | `chat_conversations` / `chat_messages` | Sessions (hashed token, lead flag) and messages (strategy, sources, tokens, latency) | `uq session_token_hash`, `ix conversation_id` |
+| CRM (P4) | `contacts` (+) | `lead_score`, `lead_temperature`, `score_reasons` (explainable lead intelligence) | `ix lead_score` |
+| Automation (P4) | `automation_rules` | Trigger, config, conditions, actions (JSON), enabled, preset key | `ix (business_id, trigger)` |
+| Automation (P4) | `automation_runs` | One row per rule × trigger × subject: status, per-action results | **`uq idempotency_key`** (exactly-once side effects) |
+| Voice (P4) | `voice_settings` | Receptionist on/off, phone number, forward number | PK `business_id`, **`uq phone_number`** |
+| Voice (P4) | `calls` | Caller, state, transcript, outcome, summary, linked contact/appointment, duration | `ix (business_id, started_at)` |
+| Integrations (P4) | `api_keys` | Name, prefix, SHA-256 hash, read-only, last used, revoked | **`uq key_hash`** |
+| Integrations (P4) | `webhook_endpoints` | URL, events, secret version (secret derived, not stored), active, failure streak | `ix business_id` |
+| Integrations (P4) | `webhook_deliveries` | Event, payload, status, attempts, response status, last error | `ix endpoint_id`, `ix created_at` |
 | Factory (P2) | `ai_generations` | Every model call: content cache + token/latency/acceptance ledger | `uq cache_key`, `ix task`, `ix created_at` |
 
 The doc 15 sketches (`businesses`, `websites`, `claims`, `customers`, `outreach_events`) are all present

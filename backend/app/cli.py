@@ -26,6 +26,7 @@ from app.domains.website_factory.enums import WebsiteStatus
 from app.models import Business, Website
 from app.schemas.website import GenerateBatchRequest
 from app.services.auth_service import AuthService
+from app.services.crm_service import CrmService
 from app.services.outreach_service import OutreachService
 from app.services.publishing_service import PublishingService
 from app.services.support import SYSTEM
@@ -96,6 +97,7 @@ def main(argv: list[str] | None = None) -> int:
     gen.add_argument("--limit", type=int, default=100)
     gen.add_argument("--publish", action="store_true")
     sub.add_parser("dispatch-outreach")
+    sub.add_parser("rescore-leads", help="backfill/refresh lead scores without firing alerts (nightly)")
     enqueue = sub.add_parser("enqueue")
     enqueue.add_argument("--limit", type=int, default=1000)
     enqueue.add_argument("--no-publish", action="store_true")
@@ -108,7 +110,8 @@ def main(argv: list[str] | None = None) -> int:
         if not args.once:
             factory_worker.run_forever()
             return 0
-        result: object = {"jobs": factory_worker.drain(), "events_relayed": factory_worker.relay_events()}
+        result: object = {"jobs": factory_worker.drain(), "events_relayed": factory_worker.relay_events(),
+                          "automations": factory_worker.automation_tick()}
     elif args.command == "enqueue":
         with SessionLocal() as db:
             result = WebsiteService(db, settings).enqueue_batch(
@@ -121,6 +124,8 @@ def main(argv: list[str] | None = None) -> int:
                 result = seed_all(db, settings, demo=args.demo)
             elif args.command == "sync-templates":
                 result = TemplateService(db, settings).sync_from_disk(SYSTEM).model_dump()
+            elif args.command == "rescore-leads":
+                result = {"rescored": CrmService(db, settings).rescore_all()}
             elif args.command == "create-admin":
                 user = AuthService(db).ensure_admin(args.email, args.password)
                 result = {"admin": user.email}

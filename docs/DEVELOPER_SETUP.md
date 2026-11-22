@@ -129,9 +129,14 @@ python -m app.cli sync-templates
 python -m app.cli create-admin EMAIL PASSWORD
 python -m app.cli generate --limit 100 --publish   # synchronous (small runs)
 python -m app.cli enqueue --limit 1000             # queue a factory batch
-python -m app.cli worker [--once]                  # factory worker + event relay
+python -m app.cli worker [--once]                  # jobs, event relay, automation tick, stale-call cleanup
 python -m app.cli dispatch-outreach
+python -m app.cli rescore-leads                    # refresh lead scores silently (nightly / after upgrading)
 ```
+
+Phase 4 local testing: set `WEBHOOK_ALLOW_PRIVATE=true` to send webhooks to a receiver on your machine
+(`http://host.docker.internal:<port>/...` from Docker; metadata/link-local addresses stay blocked). Set
+`VOICE_GATEWAY_TOKEN` to exercise `/api/v1/voice/*`, or use the simulator under **Portal → Receptionist**.
 
 ## Troubleshooting
 

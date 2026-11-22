@@ -151,3 +151,11 @@ def test_csv_export_neutralizes_formulas():
 def test_name_capture_is_case_insensitive_on_the_trigger_phrase():
     """Regression: "My name is ..." at the start of a sentence was not captured."""
     assert extract_contact("My name is Lito Cruz, 0917 222 3333")["name"] == "Lito Cruz"
+
+
+def test_chat_improvised_answer_hands_off():
+    """An answer built from vocabulary the knowledge doesn't contain is discarded for an honest hand-off."""
+    improvised = FakeLLM(raw=json.dumps({"answer": "Yes, there is ample parking behind the building and "
+                                                   "valet service on weekends.", "used": [1]}))
+    answer = _ask(_agent(improvised), "what are your business hours")
+    assert answer.strategy == "handoff" and answer.text == "Leave your details."

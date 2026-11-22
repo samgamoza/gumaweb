@@ -98,6 +98,14 @@ class Settings(BaseSettings):
     image_library_variants: int = 3  # distinct library images per (industry, category) before reuse
     max_upload_mb: int = 5
 
+    # --- Guma OS integration (Phase 4) ---------------------------------------
+    # Shared secret the telephony gateway (Asterisk + Whisper + Piper adapter) sends as X-Voice-Gateway-Token.
+    voice_gateway_token: str | None = None
+    webhook_allow_private: bool = False  # True only for local development (targets on localhost / LAN)
+    webhook_timeout_seconds: float = 10.0
+    webhook_max_attempts: int = 6
+    webhook_disable_after_failures: int = 20
+
     # --- Bootstrap ---------------------------------------------------------
     first_admin_email: str = "admin@gumaweb.io"
     first_admin_password: str = "ChangeMe!2026"

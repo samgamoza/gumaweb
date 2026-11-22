@@ -9,6 +9,9 @@ const UPSELL: Record<string, { plan: string; label: string; pitch: string }> = {
   crm: { plan: "business", label: "Business Plus", pitch: "Every inquiry from your website, bookings and chat, in one simple pipeline." },
   booking: { plan: "business", label: "Business Plus", pitch: "Let customers book appointments on your website, around the clock." },
   ai_chatbot: { plan: "ai", label: "AI", pitch: "An assistant on your website that answers questions from your own information and collects leads." },
+  automation: { plan: "business", label: "Business Plus", pitch: "Thank new leads, remind customers before appointments, and follow up automatically." },
+  integrations: { plan: "business", label: "Business Plus", pitch: "Connect GumaWeb to your other tools with API keys and webhooks." },
+  voice_receptionist: { plan: "voice_ai", label: "Voice AI", pitch: "An AI receptionist that answers your phone, books appointments and takes messages." },
 };
 
 /** Renders children only when the plan includes `feature`; otherwise an upgrade card. */
