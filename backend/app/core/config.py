@@ -46,6 +46,16 @@ class Settings(BaseSettings):
     site_url_template: str = "http://localhost:8080/{subdomain}/"
     public_site_domain: str = "gumaweb.io"
 
+    # --- Custom domains (Phase 5) ------------------------------------------
+    # Owners point www.<domain> here (CNAME) and the bare domain at custom_domain_ipv4 (A record),
+    # both reaching the TLS edge (Caddy on-demand certificates, see infrastructure/caddy).
+    custom_domain_cname_target: str = "domains.gumaweb.io"
+    custom_domain_ipv4: str | None = None
+    custom_domain_scheme: Literal["https", "http"] = "https"
+    max_custom_domains: int = 3
+    domain_pending_days: int = 7  # unverified domains are released after this, so nobody can squat a name
+    domain_recheck_hours: int = 24
+
     # --- Filesystem / storage ---------------------------------------------
     templates_dir: Path = REPO_ROOT / "templates"
     generated_sites_dir: Path = REPO_ROOT / "generated-sites"

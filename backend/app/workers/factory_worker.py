@@ -100,6 +100,12 @@ def _presence(db: Session, settings: Settings, payload: dict[str, Any]) -> dict[
     return {"presence_version": kit.version}
 
 
+def _check_domains(db: Session, settings: Settings, payload: dict[str, Any]) -> dict[str, Any]:
+    from app.services.domain_service import DomainService
+
+    return DomainService(db, settings).recheck(SYSTEM)
+
+
 HANDLERS: dict[JobKind, Handler] = {
     JobKind.GENERATE_WEBSITE: _generate,
     JobKind.REGENERATE_WEBSITE: _regenerate,
@@ -108,6 +114,7 @@ HANDLERS: dict[JobKind, Handler] = {
     JobKind.DELIVER_WEBHOOK: _webhook,
     JobKind.SUMMARIZE_CALL: _summarize_call,
     JobKind.GENERATE_PRESENCE: _presence,
+    JobKind.CHECK_DOMAINS: _check_domains,
 }
 
 
@@ -185,6 +192,10 @@ class FactoryWorker:
             with self.session_factory() as db:
                 stats = AutomationService(db, self.settings).tick()
                 stats["stale_calls_closed"] = VoiceService(db, self.settings).close_stale()
+                # Hourly custom-domain re-verification, as a queued job (retries, visible in admin).
+                hour = datetime.now(UTC).strftime("%Y%m%d%H")
+                JobQueue(db).enqueue(JobKind.CHECK_DOMAINS, {}, dedupe_key=f"check_domains:{hour}", priority=150)
+                db.commit()
                 return stats
         except Exception:
             logger.exception("automation tick failed")

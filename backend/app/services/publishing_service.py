@@ -24,6 +24,7 @@ from app.domains.website_factory.jobs import JobKind
 from app.models import Deployment, Website
 from app.repositories.repositories import WebsiteRepository
 from app.services.asset_service import AssetService, extension_for
+from app.services.domain_service import DomainService
 from app.services.job_queue import JobQueue
 from app.services.providers import providers
 from app.services.support import Actor, EventType, audit, record_event
@@ -95,6 +96,8 @@ class PublishingService:
         try:
             files = self.render(website, version)
             result = storage.publish(website.subdomain, version, files)
+            for domain in DomainService(self.db, self.settings).serving_domains(website.business_id):
+                storage.publish_domain(domain, files)  # same build, served at the owner's domain
         except Exception as exc:
             logger.exception("publish failed for %s", website.subdomain)
             deployment.status = DeploymentStatus.FAILED

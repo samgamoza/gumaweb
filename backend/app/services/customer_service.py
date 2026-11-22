@@ -203,6 +203,12 @@ class BillingService:
         self.db.flush()
         # Plan changes add/remove booking & chat modules on the live site.
         refresh_site(self.db, self.settings, customer.business_id, actor)
+        # Phase 5: a downgrade stops custom-domain serving and suspends business email.
+        from app.services.domain_service import DomainService
+        from app.services.mail_service import MailService
+
+        DomainService(self.db, self.settings).enforce_plan(customer.business_id, actor)
+        MailService(self.db, self.settings).enforce_plan(customer.business_id)
         audit(self.db, actor, AuditAction.SUBSCRIPTION_CHANGED, "customer", customer.id,
               {"from": previous.value, "to": target.value})
         self.db.commit()

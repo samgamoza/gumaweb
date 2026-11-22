@@ -7,6 +7,7 @@ import httpx
 from app.core.config import get_settings
 from app.domains.publishing.renderer import SiteRenderer
 from app.domains.publishing.storage import LocalSiteStorage, S3SiteStorage, SiteStorage
+from app.services.dns_resolver import DnsResolver, LiveDnsResolver
 from app.services.notifications import (
     ConsoleEmailSender,
     ConsoleSmsSender,
@@ -23,6 +24,7 @@ class Providers:
         self._storage: SiteStorage | None = None
         self._renderer: SiteRenderer | None = None
         self._http: httpx.Client | None = None
+        self._dns: DnsResolver | None = None
 
     @property
     def email(self) -> EmailSender:
@@ -70,6 +72,16 @@ class Providers:
     @renderer.setter
     def renderer(self, value: SiteRenderer) -> None:
         self._renderer = value
+
+    @property
+    def dns(self) -> DnsResolver:
+        if self._dns is None:
+            self._dns = LiveDnsResolver()
+        return self._dns
+
+    @dns.setter
+    def dns(self, value: DnsResolver) -> None:
+        self._dns = value
 
     @property
     def http(self) -> httpx.Client:

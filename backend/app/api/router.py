@@ -8,6 +8,7 @@ from app.api.v1.endpoints import (
     businesses,
     claims,
     customer,
+    domains,
     engagement,
     guma_os,
     health,
@@ -25,3 +26,5 @@ for module in (auth, businesses, templates, websites, claims, customer, engageme
 api_router.include_router(guma_os.router)
 api_router.include_router(guma_os.gateway)
 api_router.include_router(presence.router)
+api_router.include_router(domains.router)
+api_router.include_router(domains.edge)
