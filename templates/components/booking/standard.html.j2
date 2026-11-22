@@ -1,0 +1,28 @@
+{# Phase 3 booking widget: services + live slots from the GumaWeb API; progressive (call/email without JS). #}
+<section id="booking" class="section booking">
+  <div class="container container--narrow">
+    <h2>{{ block.get('heading', 'Book an Appointment') }}</h2>
+    {% if block.get('intro') %}<p class="muted">{{ block.get('intro') }}</p>{% endif %}
+    <form class="card booking-form" data-booking data-endpoint="{{ api_url }}/api/v1/public/sites/{{ subdomain }}/booking" hidden>
+      <div class="booking-form__row">
+        <label>Service<select name="service" required></select></label>
+        <label>Date<input type="date" name="date" required></label>
+      </div>
+      <fieldset class="booking-slots">
+        <legend>Available times</legend>
+        <div data-slots class="booking-slots__list"><p class="muted">Choose a date to see available times.</p></div>
+      </fieldset>
+      <input type="hidden" name="start">
+      <label>Name<input name="name" required maxlength="200" autocomplete="name"></label>
+      <div class="booking-form__row">
+        <label>Email<input name="email" type="email" maxlength="320" autocomplete="email"></label>
+        <label>Phone<input name="phone" type="tel" maxlength="32" autocomplete="tel"></label>
+      </div>
+      <label>Notes<textarea name="notes" maxlength="1000" rows="3"></textarea></label>
+      <label class="hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
+      <button class="btn" type="submit">Request booking</button>
+      <p class="form-status" data-booking-status role="status" aria-live="polite"></p>
+    </form>
+    <p class="muted booking-fallback">{% if business.phone %}Prefer to talk? Call <a href="tel:{{ business.phone|tel }}">{{ business.phone|tel }}</a>.{% endif %}</p>
+  </div>
+</section>

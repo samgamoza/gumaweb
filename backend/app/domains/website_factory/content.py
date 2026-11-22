@@ -112,6 +112,8 @@ class TemplateContentGenerator:
             },
             "testimonials": lambda: {"heading": "What Our Customers Say", "items": []},
             "gallery": lambda: {"heading": "Gallery", "images": []},
+            "booking": lambda: {"heading": "Book an Appointment",
+                                "intro": "Choose a service and a time that works for you."},
         }
         return {key: builders[key]() for key in section_keys if key in builders}
 

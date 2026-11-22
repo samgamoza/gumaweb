@@ -30,7 +30,7 @@ from app.domains.website_factory.blueprint import (
     build_blueprint,
     content_keys,
 )
-from app.domains.website_factory.content import ContentContext
+from app.domains.website_factory.content import ContentContext, TemplateContentGenerator
 from app.domains.website_factory.enums import ContentSource, WebsiteStatus
 from app.domains.website_factory.images import asset_seed
 from app.domains.website_factory.quality import validate_site
@@ -39,6 +39,7 @@ from app.repositories.repositories import WebsiteRepository
 from app.services.ai_store import AIGenerationStore
 from app.services.asset_service import AssetService
 from app.services.business_service import ProfileService
+from app.services.entitlements import site_features
 from app.services.providers import providers
 from app.services.support import EventType, record_event
 from app.services.template_service import TemplateService
@@ -90,8 +91,23 @@ class WebsiteGenerationWorkflow:
         profile = self.profiles.ensure(business)
         template = website.template or self.templates.select_for(profile.industry, profile.category)
         website.blueprint = self._build_blueprint(business, profile, template, website)
+        self._fill_missing_content(website, business, profile)
         self._generate_seo(website, business, profile)
         self.validate(website)
+        self.db.flush()
+
+    def _fill_missing_content(self, website: Website, business: Business, profile: BusinessProfile) -> None:
+        """Sections added by a feature toggle (e.g. booking) get template copy; existing content is untouched."""
+        missing = content_keys(website.blueprint or {}) - self.websites.content_map(website.id).keys()
+        if not missing:
+            return
+        ctx = ContentContext(
+            name=business.name, industry=profile.industry, city=business.city, province=business.province,
+            address=business.address, phone=business.phone, email=business.email, facebook=business.facebook,
+            services=list(profile.services), target_audience=profile.target_audience, brand_tone=profile.brand_tone,
+        )
+        for key, block in TemplateContentGenerator().blocks(ctx, missing).items():
+            self.db.add(WebsiteContent(website=website, section_key=key, content=block, source=ContentSource.TEMPLATE))
         self.db.flush()
 
     # --- Steps ----------------------------------------------------------------------
@@ -130,6 +146,7 @@ class WebsiteGenerationWorkflow:
             services=list(profile.services),
             brand_tone=profile.brand_tone,
             claimed=website.is_claimed,
+            features=site_features(self.db, business.id),
         )
 
     def _inject_content(self, website: Website, business: Business, profile: BusinessProfile,

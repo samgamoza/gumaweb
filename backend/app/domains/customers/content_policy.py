@@ -21,6 +21,7 @@ EDITABLE_FIELDS: dict[str, dict[str, type | tuple[type, ...]]] = {
                 "address": (str, type(None))},
     "testimonials": {"heading": str, "items": list},
     "gallery": {"heading": str, "images": list},
+    "booking": {"heading": str, "intro": str},
 }
 MAX_TEXT = 2000
 MAX_ITEMS = 30

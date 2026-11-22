@@ -3,6 +3,16 @@
 from app.models.business import Business, BusinessProfile, DiscoveryRun
 from app.models.claim import Claim
 from app.models.customer import Customer, Lead, Plan, Subscription
+from app.models.engagement import (
+    Appointment,
+    BookingSettings,
+    ChatbotSettings,
+    ChatConversation,
+    ChatMessage,
+    Contact,
+    ContactActivity,
+    KnowledgeEntry,
+)
 from app.models.factory import AIGeneration, FactoryJob
 from app.models.outreach import OutreachCampaign, OutreachEvent, OutreachMessage, OutreachSuppression
 from app.models.platform import AuditLog, DomainEvent, SiteEvent
@@ -12,6 +22,14 @@ from app.models.website import Deployment, MediaAsset, SeoMetadata, Website, Web
 
 __all__ = [
     "AIGeneration",
+    "Appointment",
+    "BookingSettings",
+    "ChatConversation",
+    "ChatMessage",
+    "ChatbotSettings",
+    "Contact",
+    "ContactActivity",
+    "KnowledgeEntry",
     "AuditLog",
     "FactoryJob",
     "Business",

@@ -579,5 +579,170 @@ ALTER TABLE seo_metadata ADD COLUMN audit JSONB;
 
 UPDATE alembic_version SET version_num='0002' WHERE alembic_version.version_num = '0001';
 
+-- Running upgrade 0002 -> 0003
+
+CREATE TABLE booking_settings (
+    business_id UUID NOT NULL, 
+    enabled BOOLEAN NOT NULL, 
+    timezone VARCHAR(64) NOT NULL, 
+    slot_minutes INTEGER NOT NULL, 
+    buffer_minutes INTEGER NOT NULL, 
+    lead_time_hours INTEGER NOT NULL, 
+    max_days_ahead INTEGER NOT NULL, 
+    auto_confirm BOOLEAN NOT NULL, 
+    weekly_hours JSONB NOT NULL, 
+    services JSONB NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    CONSTRAINT pk_booking_settings PRIMARY KEY (business_id), 
+    CONSTRAINT fk_booking_settings_business_id_businesses FOREIGN KEY(business_id) REFERENCES businesses (id) ON DELETE CASCADE
+);
+
+CREATE TABLE chatbot_settings (
+    business_id UUID NOT NULL, 
+    enabled BOOLEAN NOT NULL, 
+    greeting VARCHAR(300) NOT NULL, 
+    handoff_message VARCHAR(300) NOT NULL, 
+    collect_leads BOOLEAN NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    CONSTRAINT pk_chatbot_settings PRIMARY KEY (business_id), 
+    CONSTRAINT fk_chatbot_settings_business_id_businesses FOREIGN KEY(business_id) REFERENCES businesses (id) ON DELETE CASCADE
+);
+
+CREATE TABLE contacts (
+    business_id UUID NOT NULL, 
+    name VARCHAR(200) NOT NULL, 
+    email VARCHAR(320), 
+    phone VARCHAR(32), 
+    source VARCHAR(32) NOT NULL, 
+    stage VARCHAR(32) NOT NULL, 
+    value_cents INTEGER, 
+    tags JSONB NOT NULL, 
+    notes TEXT, 
+    last_activity_at TIMESTAMP WITH TIME ZONE, 
+    id UUID NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    CONSTRAINT pk_contacts PRIMARY KEY (id), 
+    CONSTRAINT fk_contacts_business_id_businesses FOREIGN KEY(business_id) REFERENCES businesses (id) ON DELETE CASCADE, 
+    CONSTRAINT ck_contacts_contactsource CHECK (source IN ('contact_form', 'booking', 'chatbot', 'manual', 'phone')), 
+    CONSTRAINT ck_contacts_contactstage CHECK (stage IN ('new', 'contacted', 'qualified', 'won', 'lost'))
+);
+
+CREATE INDEX ix_contacts_business_stage ON contacts (business_id, stage);
+
+CREATE INDEX ix_contacts_last_activity_at ON contacts (last_activity_at);
+
+CREATE UNIQUE INDEX uq_contacts_business_email ON contacts (business_id, email) WHERE email IS NOT NULL;
+
+CREATE UNIQUE INDEX uq_contacts_business_phone ON contacts (business_id, phone) WHERE phone IS NOT NULL;
+
+CREATE TABLE knowledge_entries (
+    business_id UUID NOT NULL, 
+    source VARCHAR(16) NOT NULL, 
+    section VARCHAR(64), 
+    title VARCHAR(300) NOT NULL, 
+    content TEXT NOT NULL, 
+    id UUID NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    CONSTRAINT pk_knowledge_entries PRIMARY KEY (id), 
+    CONSTRAINT fk_knowledge_entries_business_id_businesses FOREIGN KEY(business_id) REFERENCES businesses (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_knowledge_entries_business_id ON knowledge_entries (business_id);
+
+CREATE TABLE appointments (
+    business_id UUID NOT NULL, 
+    contact_id UUID, 
+    service_name VARCHAR(120) NOT NULL, 
+    starts_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    ends_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    status VARCHAR(32) NOT NULL, 
+    customer_name VARCHAR(200) NOT NULL, 
+    customer_email VARCHAR(320), 
+    customer_phone VARCHAR(32), 
+    notes TEXT, 
+    manage_token_hash VARCHAR(64) NOT NULL, 
+    cancelled_at TIMESTAMP WITH TIME ZONE, 
+    id UUID NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    CONSTRAINT pk_appointments PRIMARY KEY (id), 
+    CONSTRAINT fk_appointments_business_id_businesses FOREIGN KEY(business_id) REFERENCES businesses (id) ON DELETE CASCADE, 
+    CONSTRAINT fk_appointments_contact_id_contacts FOREIGN KEY(contact_id) REFERENCES contacts (id) ON DELETE SET NULL, 
+    CONSTRAINT uq_appointments_manage_token_hash UNIQUE (manage_token_hash), 
+    CONSTRAINT ck_appointments_appointmentstatus CHECK (status IN ('pending', 'confirmed', 'cancelled', 'completed', 'no_show'))
+);
+
+CREATE INDEX ix_appointments_business_start ON appointments (business_id, starts_at);
+
+CREATE UNIQUE INDEX uq_appointments_business_start_active ON appointments (business_id, starts_at) WHERE status IN ('pending', 'confirmed');
+
+CREATE TABLE chat_conversations (
+    business_id UUID NOT NULL, 
+    session_token_hash VARCHAR(64) NOT NULL, 
+    contact_id UUID, 
+    message_count INTEGER NOT NULL, 
+    lead_captured BOOLEAN NOT NULL, 
+    visitor_hash VARCHAR(64), 
+    started_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    last_message_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    id UUID NOT NULL, 
+    CONSTRAINT pk_chat_conversations PRIMARY KEY (id), 
+    CONSTRAINT fk_chat_conversations_business_id_businesses FOREIGN KEY(business_id) REFERENCES businesses (id) ON DELETE CASCADE, 
+    CONSTRAINT fk_chat_conversations_contact_id_contacts FOREIGN KEY(contact_id) REFERENCES contacts (id) ON DELETE SET NULL, 
+    CONSTRAINT uq_chat_conversations_session_token_hash UNIQUE (session_token_hash)
+);
+
+CREATE INDEX ix_chat_conversations_business_id ON chat_conversations (business_id);
+
+CREATE INDEX ix_chat_conversations_last_message_at ON chat_conversations (last_message_at);
+
+CREATE TABLE contact_activities (
+    contact_id UUID NOT NULL, 
+    type VARCHAR(32) NOT NULL, 
+    body TEXT, 
+    data JSONB NOT NULL, 
+    created_by UUID, 
+    occurred_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    id UUID NOT NULL, 
+    CONSTRAINT pk_contact_activities PRIMARY KEY (id), 
+    CONSTRAINT fk_contact_activities_contact_id_contacts FOREIGN KEY(contact_id) REFERENCES contacts (id) ON DELETE CASCADE, 
+    CONSTRAINT fk_contact_activities_created_by_users FOREIGN KEY(created_by) REFERENCES users (id) ON DELETE SET NULL, 
+    CONSTRAINT ck_contact_activities_activitytype CHECK (type IN ('note', 'call', 'email', 'meeting', 'stage_change', 'form_submission', 'booking', 'chat'))
+);
+
+CREATE INDEX ix_contact_activities_contact_id ON contact_activities (contact_id);
+
+CREATE TABLE chat_messages (
+    conversation_id UUID NOT NULL, 
+    role VARCHAR(16) NOT NULL, 
+    content TEXT NOT NULL, 
+    strategy VARCHAR(16), 
+    sources JSONB NOT NULL, 
+    model VARCHAR(128), 
+    prompt_tokens INTEGER NOT NULL, 
+    completion_tokens INTEGER NOT NULL, 
+    latency_ms INTEGER NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    id UUID NOT NULL, 
+    CONSTRAINT pk_chat_messages PRIMARY KEY (id), 
+    CONSTRAINT fk_chat_messages_conversation_id_chat_conversations FOREIGN KEY(conversation_id) REFERENCES chat_conversations (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_chat_messages_conversation_id ON chat_messages (conversation_id);
+
+ALTER TABLE leads ADD COLUMN contact_id UUID;
+
+ALTER TABLE leads ADD CONSTRAINT fk_leads_contact_id_contacts FOREIGN KEY(contact_id) REFERENCES contacts (id) ON DELETE SET NULL;
+
+ALTER TABLE template_components DROP CONSTRAINT ck_template_components_componenttype;
+
+ALTER TABLE template_components ADD CONSTRAINT ck_template_components_componenttype CHECK (component_type IN ('hero', 'about', 'services', 'gallery', 'testimonials', 'faq', 'cta', 'contact', 'map', 'footer', 'booking'));
+
+UPDATE alembic_version SET version_num='0003' WHERE alembic_version.version_num = '0002';
+
 COMMIT;
 

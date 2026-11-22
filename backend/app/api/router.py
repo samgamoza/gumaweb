@@ -8,6 +8,7 @@ from app.api.v1.endpoints import (
     businesses,
     claims,
     customer,
+    engagement,
     health,
     outreach,
     public,
@@ -16,6 +17,6 @@ from app.api.v1.endpoints import (
 )
 
 api_router = APIRouter()
-for module in (auth, businesses, templates, websites, claims, customer, outreach, billing, analytics, admin,
+for module in (auth, businesses, templates, websites, claims, customer, engagement, outreach, billing, analytics, admin,
                public, health):
     api_router.include_router(module.router)

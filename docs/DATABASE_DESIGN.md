@@ -70,6 +70,13 @@ erDiagram
 | Audit | `audit_logs` | Who did what, when, from where | `ix action`, `ix (entity_type, entity_id)`, `ix created_at` |
 | Platform | `domain_events` | Transactional outbox (relayed to the Redis stream `gumaweb:events` by workers) | `ix event_type`, `ix processed_at` |
 | Factory (P2) | `factory_jobs` | Durable work queue: kind, payload, status, attempts/backoff, lock owner, result | `ix (status, run_after, priority)`, **partial unique `(dedupe_key) WHERE status IN ('queued','running')`** |
+| CRM (P3) | `contacts` | One person per business: name, email, phone, source, stage, deal value, tags | **partial unique `(business_id, email)` and `(business_id, phone)`**, `ix (business_id, stage)` |
+| CRM (P3) | `contact_activities` | Timeline: form submission, booking, chat, stage change, note/call/email/meeting | `ix contact_id` |
+| Booking (P3) | `booking_settings` | Per-business hours (JSON), services, slot step, buffer, notice, window, auto-confirm | PK `business_id` |
+| Booking (P3) | `appointments` | Service, start/end (UTC), status, visitor details, hashed manage token | `ix (business_id, starts_at)`, **partial unique `(business_id, starts_at) WHERE status IN ('pending','confirmed')`** |
+| Chatbot (P3) | `chatbot_settings` | Enabled, greeting, hand-off message, lead collection | PK `business_id` |
+| Chatbot (P3) | `knowledge_entries` | Website-derived and owner-written Q&A | `ix business_id` |
+| Chatbot (P3) | `chat_conversations` / `chat_messages` | Sessions (hashed token, lead flag) and messages (strategy, sources, tokens, latency) | `uq session_token_hash`, `ix conversation_id` |
 | Factory (P2) | `ai_generations` | Every model call: content cache + token/latency/acceptance ledger | `uq cache_key`, `ix task`, `ix created_at` |
 
 The doc 15 sketches (`businesses`, `websites`, `claims`, `customers`, `outreach_events`) are all present
@@ -83,6 +90,8 @@ and extended. Every column from those sketches exists under the same name.
 4. One active subscription per customer.
 5. One content block per section per website, and each campaign messages a business once per step.
 6. At most one queued or running factory job per dedupe key (e.g. one generation per business).
+7. One CRM contact per email and per phone within a business.
+8. No two active appointments start at the same time for a business.
 
 ## Redis usage
 

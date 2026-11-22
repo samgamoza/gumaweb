@@ -1,6 +1,6 @@
 # System Architecture
 
-> Status: **Phase 1 MVP and Phase 2 (Factory Scale) implemented**. The requirements live in [`docs/requirements/`](requirements/)
+> Status: **Phases 1 (MVP), 2 (Factory Scale) and 3 (Platform Expansion) implemented**. The requirements live in [`docs/requirements/`](requirements/)
 > (documents 01–20). This file describes how the code implements them and why.
 
 ## 1. Shape of the system
@@ -154,6 +154,10 @@ public information.
 | ADR-14 | Generated images are decorative only; galleries show owner uploads only | Never present AI imagery as a business's work, staff or premises. |
 | ADR-15 | Images are bundled into each site build (`assets/img/`) | Sites stay self-contained static artifacts; library changes never break a live site. |
 | ADR-16 | Tests run on SQLite **and** PostgreSQL (`TEST_DATABASE_URL`) | The PostgreSQL run caught a GROUP BY bug that SQLite accepted. |
+| ADR-17 | Capture contacts on every plan; gate only the CRM screens | Owners never lose leads; upgrading reveals history already collected (a natural upsell). |
+| ADR-18 | Booking concurrency: per-business row lock + partial unique index on active start times | Serializes bookings per business without an exclusion constraint, which is not portable to SQLite. The unique index is the last line of defence. |
+| ADR-19 | Chatbot = BM25 retrieval over a per-business knowledge base + grounded LLM phrasing | Fully local, no embedding service. It works as an FAQ bot when AI is off, and it hands off instead of guessing. |
+| ADR-20 | Feature modules are injected at blueprint time (booking section, chat widget) | Plan or setting changes rebuild and republish the static site; widget JS ships only on pages that use it. |
 
 ## 9. Known limitations and the security roadmap
 
@@ -220,3 +224,42 @@ acceptance, AI-written share, image reuse).
 14 manifests (new: `contractor-modern-v1`, `dental-smile-v1`, `cafe-modern-v1`, `auto-repair-v1`) and a `hero/split`
 variant with imagery. Businesses in the same industry spread deterministically across all industry-specific templates
 (seeded by business id). Regeneration keeps a site's template unless an operator changes it.
+
+
+## 11. Phase 3: Platform Expansion
+
+Doc 20 Phase 3 deliverables (**CRM, AI chatbot, lead management, booking**), gated by plan per doc 14:
+Business Plus unlocks CRM and booking; AI adds the chatbot and knowledge base.
+
+### 11.1 CRM and lead management (`services/crm_service.py`)
+Every inbound channel funnels into one **contact** per person per business, deduplicated by normalized email, then
+phone (partial unique indexes). Each touch becomes an **activity**: form submission, booking, chat, stage change,
+or a note/call/email/meeting logged by the owner. The pipeline runs new → contacted → qualified → won/lost, with an
+optional deal value and per-stage totals. CSV export neutralizes spreadsheet formula injection. Capture runs on
+**every** plan; only the CRM endpoints are gated (`403 plan_upgrade_required`).
+
+### 11.2 Online booking (`domains/booking`, `services/booking_service.py`)
+Weekly opening hours, slot step, service durations, buffer, minimum notice and booking window are evaluated in the
+business's IANA timezone (default `Asia/Manila`). Bookings re-validate the exact slot under a per-business row lock,
+and a partial unique index on active start times backstops races. Visitors get a confirmation email with a
+manage/cancel link (`/booking/<token>`, token stored hashed). Owners get a new-booking email, and can confirm, cancel,
+complete or mark no-shows in the portal. Every booking creates or updates a CRM contact.
+
+### 11.3 AI chatbot (`domains/chatbot`, `agents/chat_agent.py`, `services/chatbot_service.py`)
+```text
+visitor message ─▶ clean/limit ─▶ lead capture (regex: email, PH mobile, "my name is …") ─▶ CRM
+   ─▶ greeting? ─▶ BM25 over knowledge (website FAQ/services/about/contact + owner entries)
+   ─▶ no hit → hand off (ask for details)          ─▶ AI off/down → best entry verbatim
+   ─▶ local LLM with numbered knowledge only, visitor text fenced as data ─▶ {"unknown": true} → hand off
+   ─▶ unsupported prices/years/ratings in the answer → discard, use the retrieval answer
+```
+Website-derived knowledge rebuilds when the owner edits content, while owner-written entries are kept. Conversations
+are stored per session (hashed token), capped at 40 turns, and rate-limited per IP.
+**Live check** (qwen2.5:1.5b via Ollama): grounded dental FAQ answers in about 2–19 s on CPU, an honest "please contact us"
+when the knowledge didn't cover HMO acceptance, an off-topic question handed off, and a chat lead captured into the CRM.
+
+### 11.4 Site integration
+`site_features()` combines the plan's entitlements with the owner's switches. The blueprint then adds a `booking`
+section to the contact page and a site-wide chat widget. Toggling a feature or changing plan rebuilds the blueprint,
+creates content for any new section, and republishes. Downgrading removes the modules from the live site and the public
+API. The widget JavaScript is vanilla, renders everything via `textContent`, and is emitted only on pages that use it.

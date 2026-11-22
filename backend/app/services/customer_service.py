@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.config import Settings
+from app.core.config import Settings, get_settings
 from app.core.exceptions import NotFoundError, ValidationFailedError
 from app.domains.analytics.enums import SiteEventType
 from app.domains.audit.actions import AuditAction
@@ -31,6 +31,7 @@ from app.schemas.customer import (
     PlanRead,
     SeoSummary,
 )
+from app.services.entitlements import refresh_site
 from app.services.publishing_service import PublishingService
 from app.services.support import Actor, EventType, audit, record_event
 from app.workflows.website_generation import WebsiteGenerationWorkflow
@@ -158,8 +159,9 @@ class CustomerService:
 
 
 class BillingService:
-    def __init__(self, db: Session) -> None:
+    def __init__(self, db: Session, settings: Settings | None = None) -> None:
         self.db = db
+        self.settings = settings or get_settings()
         self.plans = PlanRepository(db)
         self.subscriptions = SubscriptionRepository(db)
         self.payment = ManualPaymentProvider()
@@ -198,6 +200,9 @@ class BillingService:
         customer.plan = target
         record_event(self.db, EventType.CUSTOMER_UPGRADED, "customer", customer.id,
                      {"from": previous.value, "to": target.value})
+        self.db.flush()
+        # Plan changes add/remove booking & chat modules on the live site.
+        refresh_site(self.db, self.settings, customer.business_id, actor)
         audit(self.db, actor, AuditAction.SUBSCRIPTION_CHANGED, "customer", customer.id,
               {"from": previous.value, "to": target.value})
         self.db.commit()

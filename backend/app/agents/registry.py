@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from app.agents.business_agents import BusinessProfilerAgent
+from app.agents.chat_agent import ChatAgent
 from app.agents.content_agent import GenerationStore, LLMContentGenerator, QualityThresholds
 from app.agents.llm_client import build_llm_client
 from app.core.config import Settings
@@ -24,3 +25,10 @@ def get_content_generator(settings: Settings, store: GenerationStore | None = No
 
 def get_profiler_agent(settings: Settings) -> BusinessProfilerAgent:
     return BusinessProfilerAgent()
+
+
+def get_chat_agent(settings: Settings) -> ChatAgent:
+    """Website assistant: LLM-grounded when AI is enabled, retrieval-only (FAQ bot) otherwise."""
+    if not settings.ai_enabled:
+        return ChatAgent(None, None)
+    return ChatAgent(build_llm_client(settings), settings.llm_primary_model, settings.llm_json_mode)

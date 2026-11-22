@@ -6,7 +6,7 @@ GumaWeb finds local businesses without a website, generates a professional site 
 it at `<business>.gumaweb.io`, invites the owner to claim it for free, and converts claimed sites into
 recurring customers. It is local-first: self-hosted PostgreSQL, Redis, MinIO and SMTP, and local models
 (Qwen / DeepSeek via Ollama or vLLM; FLUX/SDXL optional) behind strict quality gates.
-**Status:** Phase 1 (MVP) and Phase 2 (Factory Scale) are implemented.
+**Status:** Phases 1 (MVP), 2 (Factory Scale) and 3 (Platform Expansion: CRM, booking, AI chatbot) are implemented.
 
 ```text
 Directory record → Score → Profile → Template → Content + SEO → QA gate → Publish → Outreach → Claim → Upgrade
@@ -36,7 +36,7 @@ backend/          FastAPI modular monolith (Python 3.12, SQLAlchemy 2, Alembic)
   app/workflows/    website assembly pipeline
   app/agents/       AI layer: LLM content agent, image generators (local models)
   app/workers/      factory worker: job queue + event outbox relay
-  app/models/       SQLAlchemy models (25 tables)
+  app/models/       SQLAlchemy models (33 tables)
   migrations/       Alembic
   tests/            unit + API tests
 frontend/         Next.js 15 + TypeScript + Tailwind 4: landing, claim flow, customer portal, admin console

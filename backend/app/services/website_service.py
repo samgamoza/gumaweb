@@ -90,6 +90,9 @@ class WebsiteService:
         self.workflow.validate(website)
         audit(self.db, actor, AuditAction.CONTENT_UPDATED, "website", website.id,
               {"section": section_key, "fields": sorted(clean)})
+        from app.services.chatbot_service import ChatbotService  # local import: avoids a service import cycle
+
+        ChatbotService(self.db, self.settings).refresh_if_enabled(website.business)
         if republish and website.status == WebsiteStatus.PUBLISHED:
             self.publishing.publish(website, actor)
         self.db.commit()

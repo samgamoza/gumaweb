@@ -1,10 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AuthGuard, useUser } from "@/components/auth-guard";
-import { Logo } from "@/components/logo";
 import { Alert, Badge, Button, Card, Empty, Field, Input, Select, Stat, Textarea } from "@/components/ui";
-import { ApiError, api, logout, money } from "@/lib/api";
+import { ApiError, api, money } from "@/lib/api";
 import { MediaLibrary, SeoPanel, Thumb } from "@/components/media";
 import type { ContentBlock, CustomerDashboard, Media, Plan } from "@/lib/types";
 
@@ -214,8 +212,7 @@ function Plans({ current, onChanged }: { current: string; onChanged: () => void 
   );
 }
 
-function Portal() {
-  const user = useUser();
+export default function PortalOverview() {
   const [dashboard, setDashboard] = useState<CustomerDashboard | null>(null);
   const [media, setMedia] = useState<Media[]>([]);
   const [error, setError] = useState("");
@@ -229,17 +226,7 @@ function Portal() {
   useEffect(load, [load]);
 
   return (
-    <div className="min-h-dvh">
-      <header className="border-b border-line bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-3.5">
-          <Logo href="/portal" />
-          <div className="flex items-center gap-3 text-sm text-stone-600">
-            <span className="hidden sm:inline">{user.email}</span>
-            <Button size="sm" variant="ghost" onClick={logout}>Sign out</Button>
-          </div>
-        </div>
-      </header>
-      <main className="mx-auto grid max-w-5xl gap-6 px-5 py-8">
+    <div className="grid gap-6">
         {error && <Alert tone="amber">{error}</Alert>}
         {dashboard && (
           <>
@@ -285,15 +272,6 @@ function Portal() {
             <Plans current={dashboard.customer.plan} onChanged={load} />
           </>
         )}
-      </main>
     </div>
-  );
-}
-
-export default function PortalPage() {
-  return (
-    <AuthGuard roles={["customer"]}>
-      <Portal />
-    </AuthGuard>
   );
 }

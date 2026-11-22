@@ -236,3 +236,40 @@ export interface Media {
   id: string; mime_type: string; size_bytes: number; width: number | null; height: number | null;
   alt_text: string | null; created_at: string;
 }
+
+// --- Phase 3 ---------------------------------------------------------------------------------
+
+export type Stage = "new" | "contacted" | "qualified" | "won" | "lost";
+
+export interface Contact {
+  id: string; name: string; email: string | null; phone: string | null; source: string; stage: Stage;
+  value_cents: number | null; tags: string[]; notes: string | null; last_activity_at: string | null; created_at: string;
+}
+
+export interface Activity { id: string; type: string; body: string | null; data: Record<string, unknown>; occurred_at: string }
+
+export interface ContactDetail extends Contact { activities: Activity[] }
+
+export interface PipelineStage { stage: Stage; count: number; value_cents: number }
+
+export interface BookingSettings {
+  enabled: boolean; timezone: string; slot_minutes: number; buffer_minutes: number; lead_time_hours: number;
+  max_days_ahead: number; auto_confirm: boolean; weekly_hours: Record<string, string[][]>;
+  services: { name: string; duration_minutes: number }[];
+}
+
+export interface Appointment {
+  id: string; contact_id: string | null; service_name: string; starts_at: string; ends_at: string;
+  status: "pending" | "confirmed" | "cancelled" | "completed" | "no_show";
+  customer_name: string; customer_email: string | null; customer_phone: string | null; notes: string | null; created_at: string;
+}
+
+export interface ChatbotSettings { enabled: boolean; greeting: string; handoff_message: string; collect_leads: boolean }
+
+export interface KnowledgeEntry { id: string; source: "website" | "custom"; section: string | null; title: string; content: string; updated_at: string }
+
+export interface Conversation { id: string; message_count: number; lead_captured: boolean; contact_id: string | null; started_at: string; last_message_at: string }
+
+export interface ConversationDetail extends Conversation { messages: { role: string; content: string; strategy: string | null; created_at: string }[] }
+
+export interface FeatureAccess { plan: string; features: Record<string, boolean> }

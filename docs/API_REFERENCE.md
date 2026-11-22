@@ -101,6 +101,37 @@ The dashboard includes `seo: {score, content_gaps[{key, message, impact, section
 `gallery.images: [{asset_id, alt}]` and `hero.image: {asset_id, alt} | null` (null means use the generated artwork). Only the
 shared library or the business's own uploads can be referenced.
 
+## Phase 3: CRM, booking, chatbot (customer portal, plan-gated)
+
+Gated endpoints return `403 {"error": "plan_upgrade_required"}` when the plan lacks the module.
+
+| Method | Path | Plan | Description |
+|---|---|---|---|
+| GET | `/customer/features` | any | `{plan, features: {crm, booking, ai_chatbot, ...}}` |
+| GET / POST | `/customer/crm/contacts` | Business+ | List (`q, stage, source`, paging) / create (409 `duplicate_contact`) |
+| GET / PATCH / DELETE | `/customer/crm/contacts/{id}` | Business+ | Detail with activity timeline / update (stage changes are logged) / delete |
+| POST | `/customer/crm/contacts/{id}/activities` | Business+ | Log a note, call, email or meeting |
+| GET | `/customer/crm/pipeline` | Business+ | Count and deal value per stage |
+| GET | `/customer/crm/export.csv` | Business+ | CSV export |
+| GET / PUT | `/customer/booking/settings` | Business+ | Hours, services, slot step, notice, auto-confirm; enabling adds the widget to the site |
+| GET | `/customer/booking/appointments?start=&end=&status_filter=` | Business+ | Appointments |
+| POST | `/customer/booking/appointments/{id}/{confirm\|cancel\|complete\|no_show}` | Business+ | Owner actions (notify the visitor) |
+| GET / PUT | `/customer/chatbot/settings` | AI | Greeting, hand-off message, lead collection; enabling adds the chat widget |
+| GET / POST | `/customer/chatbot/knowledge` | AI | Knowledge entries (website-derived plus custom) |
+| PUT / DELETE | `/customer/chatbot/knowledge/{id}` | AI | Edit (becomes custom) / delete |
+| POST | `/customer/chatbot/knowledge/rebuild` | AI | Re-import from website content |
+| GET | `/customer/chatbot/conversations[/{id}]` | AI | Conversation list / transcript |
+
+Public endpoints (used by the site widgets, rate limited):
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/public/sites/{subdomain}/booking` | Bookable services, timezone, window (404 if off or not entitled) |
+| GET | `/public/sites/{subdomain}/booking/slots?date=&service=` | `[{start, label}]` |
+| POST | `/public/sites/{subdomain}/booking` | `{service, start (with offset), name, email?/phone?, notes?}` → 201, or 409 `slot_taken` |
+| GET | `/public/booking/{token}` · POST `/public/booking/{token}/cancel` | Manage-link details / cancel |
+| POST | `/public/sites/{subdomain}/chat` | `{message ≤ 1000, session_token?}` → `{session_token, reply}` |
+
 ## Outreach
 
 | Method | Path | Access | Description |

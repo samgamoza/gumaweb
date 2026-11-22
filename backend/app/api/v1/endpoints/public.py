@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
+from datetime import date as date_type
 from typing import Annotated
 
-from fastapi import APIRouter, Form, Request, Response, status
+from fastapi import APIRouter, Form, Query, Request, Response, status
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import ValidationError
 
@@ -16,7 +17,10 @@ from app.domains.business_discovery.normalization import normalize_email
 from app.domains.website_factory.enums import WebsiteStatus
 from app.repositories.repositories import WebsiteRepository
 from app.schemas.analytics import PublicSiteInfo, SiteEventIn
+from app.schemas.engagement import BookingRequest, BookingResult, ChatIn, ChatOut, Slot
 from app.services.analytics_service import AnalyticsService
+from app.services.booking_service import BookingService
+from app.services.chatbot_service import ChatbotService
 from app.services.outreach_service import OutreachService
 
 router = APIRouter(prefix="/public", tags=["Public"])
@@ -103,3 +107,50 @@ def outreach_unsubscribe(token: str, db: DbSession, settings: AppSettings) -> HT
     ok = OutreachService(db, settings).unsubscribe(token)
     text = "You have been unsubscribed and will not receive further emails." if ok else "Link not recognized."
     return HTMLResponse(f"<!doctype html><title>GumaWeb</title><p style='font-family:sans-serif'>{text}</p>")
+
+
+# --- Phase 3: booking + chat (called by the widgets on generated sites) -----------------------
+@router.get("/sites/{subdomain}/booking", summary="Bookable services for the booking widget")
+def booking_info(subdomain: str, db: DbSession, settings: AppSettings) -> dict:
+    return BookingService(db, settings).public_info(subdomain)
+
+
+@router.get("/sites/{subdomain}/booking/slots", response_model=list[Slot])
+def booking_slots(subdomain: str, db: DbSession, settings: AppSettings, date: date_type,
+                  service: str = Query(max_length=120)) -> list[Slot]:
+    service_obj = BookingService(db, settings)
+    slots = service_obj.slots(subdomain, date, service)
+    return [Slot(start=s, label=s.strftime("%I:%M %p").lstrip("0")) for s in slots]
+
+
+@router.post("/sites/{subdomain}/booking", response_model=BookingResult, status_code=status.HTTP_201_CREATED)
+def book(subdomain: str, body: BookingRequest, request: Request, db: DbSession, settings: AppSettings) -> BookingResult:
+    if body.website:  # honeypot
+        raise ValidationFailedError("Invalid submission")
+    if not (body.email or body.phone):
+        raise ValidationFailedError("Please provide an email address or phone number")
+    get_rate_limiter().check("booking", client_ip(request) or "unknown", 10)
+    appt, _token = BookingService(db, settings).book(subdomain, body.model_dump())
+    message = ("You're booked! A confirmation has been sent." if appt.status == "confirmed"
+               else "Request received. The business will confirm your booking shortly.")
+    return BookingResult(appointment_id=appt.id, status=appt.status, starts_at=appt.starts_at, message=message)
+
+
+@router.get("/booking/{token}", summary="Booking details for the manage link")
+def booking_details(token: str, db: DbSession, settings: AppSettings) -> dict:
+    service = BookingService(db, settings)
+    return service.summary(service.by_token(token))
+
+
+@router.post("/booking/{token}/cancel", summary="Cancel a booking via its manage link")
+def booking_cancel(token: str, request: Request, db: DbSession, settings: AppSettings) -> dict:
+    get_rate_limiter().check("booking-cancel", client_ip(request) or "unknown", 20)
+    service = BookingService(db, settings)
+    return service.summary(service.cancel_by_token(token))
+
+
+@router.post("/sites/{subdomain}/chat", response_model=ChatOut, summary="Website assistant (AI tier)")
+def chat(subdomain: str, body: ChatIn, request: Request, db: DbSession, settings: AppSettings) -> ChatOut:
+    get_rate_limiter().check("chat", f"{client_ip(request)}:{subdomain}", 60)
+    reply = ChatbotService(db, settings).chat(subdomain, body.session_token, body.message, client_ip(request))
+    return ChatOut(session_token=reply.session_token, reply=reply.reply)

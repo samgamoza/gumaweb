@@ -147,6 +147,8 @@ class SiteRenderer:
                 root=root,
                 canonical_url=ctx.site_url.rstrip("/") + "/" + page["path"],
                 claim_banner=bp.get("claim_banner", False),
+                chat=(bp.get("features") or {}).get("chat"),
+                has_booking=any(s["component"] == "booking" for s in page["sections"]),
                 claim_url=ctx.claim_url,
                 api_url=ctx.api_url,
                 subdomain=bp["subdomain"],

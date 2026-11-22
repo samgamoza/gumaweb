@@ -96,5 +96,93 @@
     });
   })();
   </script>
+
+  {% if chat %}
+  <div class="chat" data-chat data-endpoint="{{ api_url }}/api/v1/public/sites/{{ subdomain }}/chat" data-greeting="{{ chat.get('greeting', '') }}">
+    <button class="chat__toggle btn" type="button" aria-expanded="false" aria-controls="chat-panel">Chat with us</button>
+    <section class="chat__panel card" id="chat-panel" hidden aria-label="Chat with {{ business.name }}">
+      <header class="chat__header"><strong>{{ business.name }}</strong><button type="button" class="chat__close" aria-label="Close chat">&times;</button></header>
+      <div class="chat__log" data-chat-log role="log" aria-live="polite"></div>
+      <form class="chat__form" data-chat-form>
+        <label class="hp" for="chat-input">Message</label>
+        <input id="chat-input" name="message" maxlength="1000" autocomplete="off" placeholder="Ask a question..." required>
+        <button class="btn btn--small" type="submit">Send</button>
+      </form>
+      <p class="chat__note muted">Automated assistant. Answers come from this website's information.</p>
+    </section>
+  </div>
+  {% endif %}
+
+  {% if chat or has_booking %}{# widget JS only where a widget exists #}
+  <script>
+  (function () {
+    function post(url, body) {
+      return fetch(url, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(body) })
+        .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw d; return d; }); });
+    }
+    // --- Booking widget ---
+    var booking = document.querySelector("form[data-booking]");
+    if (booking) {
+      var base = booking.dataset.endpoint, status = booking.querySelector("[data-booking-status]");
+      var slotsBox = booking.querySelector("[data-slots]"), dateInput = booking.elements.date, serviceSel = booking.elements.service;
+      fetch(base).then(function (r) { if (!r.ok) throw r; return r.json(); }).then(function (info) {
+        info.services.forEach(function (s) {
+          var o = document.createElement("option"); o.value = s.name; o.textContent = s.name + " (" + s.duration_minutes + " min)"; serviceSel.appendChild(o);
+        });
+        var today = new Date(); dateInput.min = today.toISOString().slice(0, 10);
+        dateInput.max = new Date(today.getTime() + info.max_days_ahead * 864e5).toISOString().slice(0, 10);
+        booking.hidden = false;
+      }).catch(function () {});
+      function loadSlots() {
+        booking.elements.start.value = "";
+        if (!dateInput.value) return;
+        slotsBox.textContent = "Loading...";
+        fetch(base + "/slots?date=" + dateInput.value + "&service=" + encodeURIComponent(serviceSel.value))
+          .then(function (r) { return r.json(); }).then(function (slots) {
+            slotsBox.textContent = "";
+            if (!slots.length) { slotsBox.textContent = "No times available on this day."; return; }
+            slots.forEach(function (s) {
+              var b = document.createElement("button"); b.type = "button"; b.className = "slot"; b.textContent = s.label;
+              b.addEventListener("click", function () {
+                slotsBox.querySelectorAll(".slot").forEach(function (x) { x.setAttribute("aria-pressed", "false"); });
+                b.setAttribute("aria-pressed", "true"); booking.elements.start.value = s.start;
+              });
+              slotsBox.appendChild(b);
+            });
+          }).catch(function () { slotsBox.textContent = "Could not load times. Please call us instead."; });
+      }
+      dateInput.addEventListener("change", loadSlots); serviceSel.addEventListener("change", loadSlots);
+      booking.addEventListener("submit", function (ev) {
+        ev.preventDefault();
+        if (!booking.elements.start.value) { status.textContent = "Please choose a time."; return; }
+        var f = booking.elements;
+        post(base, { service: f.service.value, start: f.start.value, name: f.name.value, email: f.email.value || null,
+                     phone: f.phone.value || null, notes: f.notes.value || null, website: f.website.value || null })
+          .then(function (d) { booking.reset(); slotsBox.textContent = ""; status.textContent = d.message; })
+          .catch(function (e) { status.textContent = (e && e.detail && typeof e.detail === "string") ? e.detail : "Sorry, that didn't work. Please try another time or call us."; if (e && e.error === "slot_taken") loadSlots(); });
+      });
+    }
+    // --- Chat widget ---
+    var chat = document.querySelector("[data-chat]");
+    if (chat) {
+      var panel = chat.querySelector(".chat__panel"), toggle = chat.querySelector(".chat__toggle"), log = chat.querySelector("[data-chat-log]");
+      var form = chat.querySelector("[data-chat-form]"), key = "gw_chat_" + location.pathname.split("/")[1];
+      function bubble(text, who) { var p = document.createElement("p"); p.className = "chat__msg chat__msg--" + who; p.textContent = text; log.appendChild(p); log.scrollTop = log.scrollHeight; }
+      function setOpen(open) { panel.hidden = !open; toggle.setAttribute("aria-expanded", String(open)); if (open) { form.elements.message.focus(); if (!log.childElementCount && chat.dataset.greeting) bubble(chat.dataset.greeting, "bot"); } }
+      toggle.addEventListener("click", function () { setOpen(panel.hidden); });
+      chat.querySelector(".chat__close").addEventListener("click", function () { setOpen(false); });
+      form.addEventListener("submit", function (ev) {
+        ev.preventDefault();
+        var text = form.elements.message.value.trim(); if (!text) return;
+        bubble(text, "me"); form.elements.message.value = "";
+        var token = null; try { token = sessionStorage.getItem(key); } catch (e) {}
+        post(chat.dataset.endpoint, { message: text, session_token: token })
+          .then(function (d) { try { sessionStorage.setItem(key, d.session_token); } catch (e) {} bubble(d.reply, "bot"); })
+          .catch(function () { bubble("Sorry, the assistant is unavailable right now. Please use the contact form.", "bot"); });
+      });
+    }
+  })();
+  </script>
+  {% endif %}
 </body>
 </html>

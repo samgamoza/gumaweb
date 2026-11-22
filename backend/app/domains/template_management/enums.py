@@ -18,3 +18,4 @@ class ComponentType(StrEnum):
     CONTACT = "contact"
     MAP = "map"
     FOOTER = "footer"
+    BOOKING = "booking"  # Phase 3: appointment widget

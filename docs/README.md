@@ -11,8 +11,8 @@ owners, and converts claimed sites into recurring SaaS customers.
 | Document | Read it when you need to... |
 |---|---|
 | [SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md) | understand the layers, bounded contexts, factory pipeline, claim flow, AI seams and decisions (ADRs) |
-| [API_REFERENCE.md](API_REFERENCE.md) | call the API: all 78 `/api/v1` endpoints, auth, errors, rate limits |
-| [DATABASE_DESIGN.md](DATABASE_DESIGN.md) | work with the 25 tables, constraints, indexes and migrations |
+| [API_REFERENCE.md](API_REFERENCE.md) | call the API: all 106 `/api/v1` endpoints, auth, errors, rate limits |
+| [DATABASE_DESIGN.md](DATABASE_DESIGN.md) | work with the 33 tables, constraints, indexes and migrations |
 | [DEVELOPER_SETUP.md](DEVELOPER_SETUP.md) | run the project, run the tests, add templates or industries |
 | [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) | deploy to Kubernetes with Helm, operate it, back it up |
 | [requirements/](requirements/) | read the authoritative product and architecture requirements (01–20) |
@@ -43,3 +43,12 @@ owners, and converts claimed sites into recurring SaaS customers.
 | Analytics: time series, templates, industries, AI usage | ✅ | `/analytics/*`, admin overview |
 | Advanced templates (14) + variety-aware selection | ✅ | `templates/manifests/` |
 | Event outbox relay to Redis Streams | ✅ | `workers/factory_worker.py` |
+
+## Phase 3 (Platform Expansion) status
+
+| Capability | Status | Where |
+|---|---|---|
+| Lead management + CRM (contacts, timeline, pipeline, CSV) | ✅ Business+ | `services/crm_service.py`, portal **Leads & CRM** |
+| Online booking (hours, services, slots, confirmations, cancel links) | ✅ Business+ | `domains/booking`, portal **Bookings**, site widget |
+| AI chatbot (knowledge base, grounded answers, hand-off, lead capture) | ✅ AI | `agents/chat_agent.py`, portal **AI assistant**, site widget |
+| Plan entitlements + live site sync on plan/setting changes | ✅ | `domains/billing/entitlements.py`, `services/entitlements.py` |

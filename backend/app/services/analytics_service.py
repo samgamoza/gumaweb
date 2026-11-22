@@ -16,6 +16,7 @@ from app.domains.analytics.kpis import PlatformKpis, rate
 from app.domains.billing.enums import PlanCode, SubscriptionStatus
 from app.domains.business_discovery.enums import BusinessStatus
 from app.domains.claims.enums import ClaimStatus
+from app.domains.crm.enums import ActivityType, ContactSource
 from app.domains.outreach.enums import MessageStatus, OutreachEventType
 from app.domains.website_factory.enums import ContentSource, WebsiteStatus
 from app.models import (
@@ -37,6 +38,7 @@ from app.models import (
 )
 from app.repositories.repositories import WebsiteRepository
 from app.schemas.analytics import DailyCount, PlatformOverview, SiteEventIn, WebsiteAnalytics
+from app.services.crm_service import CrmService
 
 
 class AnalyticsService:
@@ -67,7 +69,11 @@ class AnalyticsService:
         website = self._published_site(subdomain)
         if not (email or phone):
             raise ValidationFailedError("Please provide an email address or phone number")
-        self.db.add(Lead(website_id=website.id, name=name[:200], email=email, phone=phone,
+        contact = CrmService(self.db, self.settings).capture(
+            website.business_id, name=name, email=email, phone=phone, source=ContactSource.CONTACT_FORM,
+            activity=ActivityType.FORM_SUBMISSION, body=message[:2000],
+        )
+        self.db.add(Lead(website_id=website.id, contact_id=contact.id, name=name[:200], email=email, phone=phone,
                          message=message[:2000], ip_hash=self._visitor_hash(ip, None)))
         self.db.add(SiteEvent(website_id=website.id, event_type=SiteEventType.CONTACT_SUBMIT, path="/contact/"))
         self.db.commit()

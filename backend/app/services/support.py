@@ -45,6 +45,8 @@ class EventType(StrEnum):
     CLAIM_REJECTED = "claim_rejected"
     CUSTOMER_UPGRADED = "customer_upgraded"
     OUTREACH_SENT = "outreach_sent"
+    APPOINTMENT_BOOKED = "appointment_booked"
+    CHAT_LEAD_CAPTURED = "chat_lead_captured"
 
 
 def record_event(db: Session, event_type: EventType, aggregate_type: str, aggregate_id: Any,

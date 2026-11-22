@@ -64,7 +64,11 @@ def build_blueprint(
     services: list[str],
     brand_tone: str | None,
     claimed: bool,
+    features: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    """`features` (Phase 3): {"booking": bool, "chat": {"greeting": str} | None} - interactive modules
+    the owner enabled and the plan includes. Booking adds a section to the contact page; chat is site-wide."""
+    features = features or {"booking": False, "chat": None}
     pages = []
     for page in template.pages:
         slug = page["slug"]
@@ -76,6 +80,8 @@ def build_blueprint(
             }
             for section in page.get("sections", [])
         ]
+        if features.get("booking") and slug == "contact":
+            sections.insert(0, {"component": "booking", "variant": "standard", "content_key": "booking"})
         pages.append(
             {
                 "slug": slug,
@@ -105,6 +111,7 @@ def build_blueprint(
         "navigation": [{"label": p["title"], "path": p["path"]} for p in pages],
         "pages": pages,
         "claim_banner": not claimed,
+        "features": features,
     }
 
 
