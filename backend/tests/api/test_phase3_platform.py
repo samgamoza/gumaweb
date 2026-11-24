@@ -191,7 +191,7 @@ def test_chatbot_uses_local_llm_when_enabled(client, published_site, owner, monk
     llm = FakeLLM(raw=json.dumps({"answer": "Yes - call us for emergencies and we'll advise on timing.",
                                   "used": [1], "unknown": False}))
     monkeypatch.setattr(settings, "ai_enabled", True)
-    monkeypatch.setattr(registry, "build_llm_client", lambda _s: llm)
+    monkeypatch.setattr(registry, "build_llm_client", lambda _s, **_kw: llm)
     reply = client.post(f"/api/v1/public/sites/{sub}/chat", json={"message": "Do you handle emergency repairs?"})
     assert reply.json()["reply"].startswith("Yes - call us for emergencies")
     too_long = client.post(f"/api/v1/public/sites/{sub}/chat", json={"message": "x" * 1001})

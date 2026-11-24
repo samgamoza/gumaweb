@@ -102,6 +102,7 @@ class Settings(BaseSettings):
     llm_secondary_model: str = "deepseek-r1-distill-qwen-14b"  # review / rewrite (doc 07 secondary)
     ai_review_enabled: bool = True
     llm_timeout_seconds: float = 120.0
+    llm_chat_timeout_seconds: float = 45.0  # live website chat; batch generation uses llm_timeout_seconds
     llm_json_mode: bool = True
     # Content quality gates for AI copy (doc 07). Flesch reading ease target; the effective gate per section
     # is min(target, readability of the template copy it would replace) - AI copy may never read worse.

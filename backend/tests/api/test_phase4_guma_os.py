@@ -322,7 +322,7 @@ def test_call_summary_is_polished_in_the_background(client, published_site, monk
     headers = _owner(client, published_site, plan="voice_ai")
     grounded = FakeLLM(raw="Ramon called about a leaking sink and asked to be called back.")
     monkeypatch.setattr(settings, "ai_enabled", True)
-    monkeypatch.setattr(registry, "build_llm_client", lambda _s: grounded)
+    monkeypatch.setattr(registry, "build_llm_client", lambda _s, **_kw: grounded)
     start = client.post("/api/v1/customer/voice/test-call", headers=headers, json={"caller": "09181112222"}).json()
     for text in ("please take a message", "My sink is leaking please call back", "Ramon"):
         done = client.post(f"/api/v1/customer/voice/test-call/{start['call_id']}/turn", headers=headers,

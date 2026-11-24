@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.agents.base import LLMClient
 from app.agents.business_agents import BusinessProfilerAgent
 from app.agents.chat_agent import ChatAgent
 from app.agents.content_agent import GenerationStore, LLMContentGenerator, QualityThresholds
@@ -27,8 +28,15 @@ def get_profiler_agent(settings: Settings) -> BusinessProfilerAgent:
     return BusinessProfilerAgent()
 
 
+def get_background_llm(settings: Settings) -> LLMClient | None:
+    """LLM for worker jobs (background profile), or None when AI is disabled."""
+    return build_llm_client(settings) if settings.ai_enabled else None
+
+
 def get_chat_agent(settings: Settings) -> ChatAgent:
     """Website assistant: LLM-grounded when AI is enabled, retrieval-only (FAQ bot) otherwise."""
     if not settings.ai_enabled:
         return ChatAgent(None, None)
-    return ChatAgent(build_llm_client(settings), settings.llm_primary_model, settings.llm_json_mode)
+    # Interactive profile: on timeout the agent falls back to its retrieval answer.
+    llm = build_llm_client(settings, profile="interactive")
+    return ChatAgent(llm, settings.llm_primary_model, settings.llm_json_mode)

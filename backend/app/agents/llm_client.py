@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from typing import Literal
 
 import httpx
 
@@ -53,7 +54,17 @@ class DisabledLLMClient:
         raise AIDisabledError("AI is disabled (set AI_ENABLED=true and LLM_BASE_URL)")
 
 
-def build_llm_client(settings: Settings) -> LLMClient:
+# Who is waiting on the answer decides the timeout/retry policy:
+#   background  - worker jobs and batch generation; nobody is waiting, so use the long timeout and retry.
+#   interactive - a visitor is waiting (live chat); fail fast with no retries so the caller can fall back.
+LLMProfile = Literal["background", "interactive"]
+
+
+def build_llm_client(settings: Settings, profile: LLMProfile = "background") -> LLMClient:
     if not settings.ai_enabled:
         return DisabledLLMClient()
-    return OpenAICompatibleClient(settings.llm_base_url, settings.llm_api_key, settings.llm_timeout_seconds)
+    if profile == "interactive":
+        return OpenAICompatibleClient(settings.llm_base_url, settings.llm_api_key,
+                                      settings.llm_chat_timeout_seconds, retries=0)
+    return OpenAICompatibleClient(settings.llm_base_url, settings.llm_api_key,
+                                  settings.llm_timeout_seconds, retries=2)

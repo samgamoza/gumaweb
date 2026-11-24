@@ -207,7 +207,7 @@ class VoiceService:
                 activity=ActivityType.CALL, body=f"Called the AI receptionist and asked: {asked[:300]}")
             call.contact_id = contact.id
         call.summary = self.summarize(call, business)
-        if len(call.transcript) >= 4 and registry.get_chat_agent(self.settings).llm is not None:
+        if len(call.transcript) >= 4 and self.settings.ai_enabled:
             JobQueue(self.db).enqueue(JobKind.SUMMARIZE_CALL, {"call_id": str(call.id)}, priority=60, max_attempts=2)
         if not call.is_test:
             context: dict[str, Any] = {"call": {"id": str(call.id), "outcome": outcome, "summary": call.summary,
@@ -240,7 +240,7 @@ class VoiceService:
         """Worker job: replace the baseline summary with a model-written one when it is fully grounded.
         Runs after the call so the caller never waits on the model."""
         call = self.db.get(Call, call_id)
-        llm = registry.get_chat_agent(self.settings).llm
+        llm = registry.get_background_llm(self.settings)
         if call is None or llm is None or len(call.transcript) < 4:
             return {"skipped": True}
         transcript = "\n".join(f"{t['speaker']}: {t['text']}" for t in call.transcript)[-6000:]
