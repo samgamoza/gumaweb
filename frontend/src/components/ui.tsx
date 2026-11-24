@@ -44,11 +44,11 @@ export function Card({ title, actions, children, className }: {
   title?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string;
 }) {
   return (
-    <section className={cx("rounded-xl border border-line bg-white", className)}>
+    <section className={cx("min-w-0 break-words rounded-xl border border-line bg-white", className)}>
       {(title || actions) && (
-        <header className="flex items-center justify-between gap-4 border-b border-line px-5 py-3.5">
+        <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line px-5 py-3.5">
           <h2 className="text-sm font-semibold">{title}</h2>
-          <div className="flex items-center gap-2">{actions}</div>
+          <div className="flex min-w-0 items-center gap-2">{actions}</div>
         </header>
       )}
       <div className="p-5">{children}</div>

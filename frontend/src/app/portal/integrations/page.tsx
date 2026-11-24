@@ -142,7 +142,7 @@ export default function IntegrationsPage() {
   return (
     <FeatureGate feature="integrations">
       <PageHeader title="Integrations" description="Connect GumaWeb to Guma One and your other tools." />
-      <div className="grid gap-6">
+      <div className="grid grid-cols-1 gap-6">
         <ApiKeys />
         <Webhooks />
       </div>

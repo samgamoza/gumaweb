@@ -43,8 +43,8 @@ function SettingsCard({ initial, onSaved }: { initial: BookingSettings; onSaved:
           <div className="mb-2 text-sm font-medium">Services customers can book</div>
           <div className="grid gap-2">
             {s.services.map((svc, i) => (
-              <div key={i} className="flex gap-2">
-                <Input value={svc.name} placeholder="Service name" onChange={(e) => setS({ ...s, services: s.services.map((x, j) => j === i ? { ...x, name: e.target.value } : x) })} />
+              <div key={i} className="flex flex-wrap gap-2 sm:flex-nowrap">
+                <Input className="w-full min-w-0 sm:w-auto sm:flex-1" value={svc.name} placeholder="Service name" onChange={(e) => setS({ ...s, services: s.services.map((x, j) => j === i ? { ...x, name: e.target.value } : x) })} />
                 <Select className="w-36" value={svc.duration_minutes} onChange={(e) => setS({ ...s, services: s.services.map((x, j) => j === i ? { ...x, duration_minutes: Number(e.target.value) } : x) })}>
                   {[15, 30, 45, 60, 90, 120].map((m) => <option key={m} value={m}>{m} min</option>)}
                 </Select>
@@ -60,7 +60,7 @@ function SettingsCard({ initial, onSaved }: { initial: BookingSettings; onSaved:
             {DAYS.map(([key, label]) => {
               const window = s.weekly_hours[key]?.[0];
               return (
-                <div key={key} className="grid grid-cols-[110px_auto_1fr] items-center gap-3 text-sm">
+                <div key={key} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 text-sm sm:grid-cols-[110px_auto_minmax(0,1fr)]">
                   <span>{label}</span>
                   <label className="flex items-center gap-1.5 text-stone-600">
                     <input type="checkbox" className="accent-brand-600" checked={Boolean(window)}
@@ -68,12 +68,12 @@ function SettingsCard({ initial, onSaved }: { initial: BookingSettings; onSaved:
                     Open
                   </label>
                   {window ? (
-                    <div className="flex items-center gap-2">
-                      <Input type="time" className="w-32" value={window[0]} onChange={(e) => setS({ ...s, weekly_hours: { ...s.weekly_hours, [key]: [[e.target.value, window[1]]] } })} />
+                    <div className="col-span-2 flex items-center gap-2 sm:col-span-1">
+                      <Input type="time" className="min-w-0 flex-1 sm:w-32 sm:flex-none" value={window[0]} onChange={(e) => setS({ ...s, weekly_hours: { ...s.weekly_hours, [key]: [[e.target.value, window[1]]] } })} />
                       <span className="text-stone-400">to</span>
-                      <Input type="time" className="w-32" value={window[1]} onChange={(e) => setS({ ...s, weekly_hours: { ...s.weekly_hours, [key]: [[window[0], e.target.value]] } })} />
+                      <Input type="time" className="min-w-0 flex-1 sm:w-32 sm:flex-none" value={window[1]} onChange={(e) => setS({ ...s, weekly_hours: { ...s.weekly_hours, [key]: [[window[0], e.target.value]] } })} />
                     </div>
-                  ) : <span className="text-stone-400">Closed</span>}
+                  ) : <span className="col-span-2 text-stone-400 sm:col-span-1">Closed</span>}
                 </div>
               );
             })}

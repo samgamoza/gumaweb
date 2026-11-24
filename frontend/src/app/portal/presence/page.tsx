@@ -29,7 +29,7 @@ function KitImage({ asset, version }: { asset: PresenceAsset; version: number })
     return () => { if (url) URL.revokeObjectURL(url); };
   }, [asset.name, asset.locked, version]);
   return (
-    <figure className="grid gap-2">
+    <figure className="grid min-w-0 grid-cols-1 gap-2">
       <div className={cx("relative flex items-center justify-center overflow-hidden rounded-lg border border-line bg-[repeating-conic-gradient(#f5f5f4_0_25%,#fff_0_50%)] bg-[length:16px_16px]",
         asset.width / asset.height > 1.6 ? "aspect-[2.6/1]" : asset.height > asset.width ? "aspect-[9/12]" : "aspect-square")}>
         {asset.locked
@@ -37,8 +37,8 @@ function KitImage({ asset, version }: { asset: PresenceAsset; version: number })
           : src ? <img src={src} alt={asset.label} className="h-full w-full object-contain" />
             : <div className="h-full w-full animate-pulse bg-stone-100" />}
       </div>
-      <figcaption className="flex items-center justify-between gap-2 text-xs">
-        <span><span className="font-medium">{asset.label}</span> <span className="text-stone-500">{asset.width}×{asset.height}</span></span>
+      <figcaption className="flex flex-wrap items-center justify-between gap-2 text-xs">
+        <span className="min-w-0"><span className="font-medium">{asset.label}</span> <span className="text-stone-500">{asset.width}×{asset.height}</span></span>
         {src && <a href={src} download={`${asset.name}.png`} className="font-medium text-brand-700 hover:underline">Download</a>}
       </figcaption>
     </figure>
@@ -76,11 +76,11 @@ function Posts({ posts, assets, version }: { posts: PresencePost[]; assets: Pres
   return (
     <Card title="Your first week of posts">
       <p className="mb-4 text-sm text-stone-600">Review each one, then post it on your Facebook or Instagram. Every post uses only information from your website.</p>
-      <div className="grid gap-5 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         {posts.map((p) => {
           const asset = assets.find((a) => a.name === `post-${p.key}`);
           return (
-            <div key={p.key} className="grid gap-3 rounded-lg border border-line p-3">
+            <div key={p.key} className="grid min-w-0 grid-cols-1 gap-3 rounded-lg border border-line p-3">
               <div className="text-sm font-medium">{p.title}</div>
               {asset && <KitImage asset={asset} version={version} />}
               <p className="whitespace-pre-line text-sm text-stone-700">{p.caption}</p>
@@ -97,8 +97,8 @@ function Google({ g, checklist, onToggle }: { g: GooglePack; checklist: Record<s
   const done = g.checklist.filter((c) => checklist[c.key]).length;
   return (
     <Card title="Google Business Profile" actions={<Badge tone={done === g.checklist.length ? "green" : "gray"}>{done}/{g.checklist.length} steps</Badge>}>
-      <div className="grid gap-6 lg:grid-cols-[1fr_18rem]">
-        <div className="grid gap-4 text-sm">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        <div className="grid min-w-0 grid-cols-1 gap-4 text-sm">
           <p className="text-stone-600">Copy these into <a className="font-medium text-brand-700 hover:underline" href="https://business.google.com" target="_blank" rel="noreferrer">business.google.com</a>. They follow Google&apos;s listing rules, so your profile isn&apos;t flagged.</p>
           <Field label="Business name" value={g.name} warnings={g.name_issues} />
           <Field label="Primary category" value={g.primary_category ?? "Choose the category that best describes your business"} copy={!!g.primary_category} />
@@ -128,12 +128,12 @@ function Google({ g, checklist, onToggle }: { g: GooglePack; checklist: Record<s
 
 function Field({ label, value, warnings = [], multiline, copy = true }: { label: string; value: string; warnings?: string[]; multiline?: boolean; copy?: boolean }) {
   return (
-    <div className="grid gap-1.5">
+    <div className="grid min-w-0 grid-cols-1 gap-1.5">
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-semibold uppercase tracking-wide text-stone-500">{label}</span>
         {copy && value && <CopyButton text={value} />}
       </div>
-      <div className={cx("rounded-md bg-stone-50 px-3 py-2", multiline && "whitespace-pre-line")}>{value}</div>
+      <div className={cx("break-words rounded-md bg-stone-50 px-3 py-2", multiline && "whitespace-pre-line")}>{value}</div>
       {warnings.map((w) => <Alert key={w} tone="amber">{w}</Alert>)}
     </div>
   );
@@ -142,8 +142,8 @@ function Field({ label, value, warnings = [], multiline, copy = true }: { label:
 function Seo({ s }: { s: SeoProfile }) {
   return (
     <Card title="Local SEO profile" actions={s.site_score != null && <Badge tone={s.site_score >= 80 ? "green" : "amber"}>Website SEO {s.site_score}/100</Badge>}>
-      <div className="grid gap-6 text-sm md:grid-cols-2">
-        <div className="grid content-start gap-3">
+      <div className="grid grid-cols-1 gap-6 text-sm md:grid-cols-2">
+        <div className="grid min-w-0 content-start gap-3 break-words">
           <h3 className="font-medium">Use exactly this everywhere you&apos;re listed</h3>
           <div className="rounded-md bg-stone-50 px-3 py-2 leading-relaxed">
             <div className="font-medium">{s.nap.name}</div>
@@ -214,7 +214,7 @@ export default function PresencePage() {
         )}
         <Button variant="secondary" onClick={async () => setKit(await api<PresenceKit>("/customer/presence/regenerate", { body: {} }))}>Refresh from my website</Button>
       </div>
-      <div className="grid gap-6">
+      <div className="grid grid-cols-1 gap-6">
         <Card title="Logo and images">
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {visible.map((a) => <KitImage key={a.name} asset={a} version={kit.version} />)}

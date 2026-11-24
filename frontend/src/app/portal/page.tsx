@@ -226,15 +226,15 @@ export default function PortalOverview() {
   useEffect(load, [load]);
 
   return (
-    <div className="grid gap-6">
+    <div className="grid grid-cols-1 gap-6">
         {error && <Alert tone="amber">{error}</Alert>}
         {dashboard && (
           <>
             <div className="flex flex-wrap items-end justify-between gap-4">
-              <div>
+              <div className="min-w-0">
                 <h1 className="text-2xl font-semibold tracking-tight">{dashboard.business.name}</h1>
                 {dashboard.website?.url && (
-                  <a href={dashboard.website.url} target="_blank" rel="noopener" className="text-sm text-brand-700 underline">
+                  <a href={dashboard.website.url} target="_blank" rel="noopener" className="break-all text-sm text-brand-700 underline">
                     {dashboard.website.url}
                   </a>
                 )}

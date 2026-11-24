@@ -163,9 +163,9 @@ function Leads() {
           </form>
         </Card>
       )}
-      <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
         <Card>
-          <Input placeholder="Search name, email or phone" value={filter.q} onChange={(e) => setFilter({ ...filter, q: e.target.value })} className="mb-4 w-72" />
+          <Input placeholder="Search name, email or phone" value={filter.q} onChange={(e) => setFilter({ ...filter, q: e.target.value })} className="mb-4 w-full max-w-72" />
           {data && data.items.length === 0 ? (
             <Empty>No contacts yet. Inquiries from your website will appear here automatically.</Empty>
           ) : (

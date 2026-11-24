@@ -155,11 +155,13 @@ p { margin: 0 0 1rem; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .btn { transition: none; } }
 
 /* Phase 2: imagery */
+/* The image is set inline by the template: a relative url() passed through a custom property
+   would resolve against this stylesheet (assets/) instead of the page. */
 .hero--premium.has-image {
-  background:
-    linear-gradient(100deg, color-mix(in srgb, var(--color-accent) 92%, transparent) 0%, color-mix(in srgb, var(--color-accent) 55%, transparent) 100%),
-    var(--hero-image) center / cover no-repeat,
-    var(--color-accent);
+  background-color: var(--color-accent);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
 }
 .hero--split { background: var(--color-surface); }
 .hero__media { margin: 0; border-radius: calc(var(--radius) * 1.5); overflow: hidden; aspect-ratio: 16 / 10; box-shadow: 0 24px 60px -30px rgba(0,0,0,.45); }

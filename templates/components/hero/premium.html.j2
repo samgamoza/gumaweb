@@ -1,5 +1,5 @@
 {% set image = block.get('image') %}
-<section id="hero" class="section hero hero--premium{% if image %} has-image{% endif %}"{% if image %} style="--hero-image: url('{{ root }}{{ image.get('path') }}')"{% endif %}>
+<section id="hero" class="section hero hero--premium{% if image %} has-image{% endif %}"{% if image %} style="background-image: linear-gradient(100deg, color-mix(in srgb, var(--color-accent) 92%, transparent) 0%, color-mix(in srgb, var(--color-accent) 55%, transparent) 100%), url('{{ root }}{{ image.get('path') }}')"{% endif %}>
   <div class="container hero__inner">
     <p class="eyebrow">{{ business.name }}</p>
     <h1 class="display">{{ block.get('headline') }}</h1>
