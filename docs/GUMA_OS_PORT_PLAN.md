@@ -57,7 +57,13 @@ CSV/JSON import only.
 Ordered by dependency. Each step is one PR, green on `scripts/test.sh`, with an Alembic migration
 where noted.
 
-### Step 1 — `safe_fetch` (foundation for every outbound crawl)
+### Step 1 — `safe_fetch` (foundation for every outbound crawl) — **done**
+
+> Landed as `app/core/net.py` + `tests/unit/test_safe_fetch.py` (all 16 original scenarios + 30 more).
+> Tightened beyond the original: connections are **pinned to the validated address** (Host header and
+> TLS SNI keep the real hostname), closing the DNS-rebinding gap between check and connect; CGNAT
+> (100.64/10), IPv4-mapped IPv6 and credentials-in-URL are refused. `webhooks.py` now uses the same
+> classifier.
 
 - **From:** `adapter-maps/src/safe-fetch.ts` (178 lines, **16 tests**).
 - **To:** `app/core/net.py` — `safe_fetch(url, *, timeout, max_bytes, max_redirects, user_agent) -> SafeFetchResult`
