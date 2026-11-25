@@ -1,14 +1,84 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { useUser } from "@/components/auth-guard";
 import { PageHeader } from "@/components/page-header";
 import { Alert, Badge, Button, Card, Empty, Field, Input, ScoreBar, Select, Table, Td } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
-import type { Business, DiscoveryRun, Page } from "@/lib/types";
+import type { Business, BusinessContact, DiscoveryRun, Page } from "@/lib/types";
+
+const VALUE_TYPE_LABEL: Record<BusinessContact["value_type"], string> = {
+  observed: "seen at source", derived: "derived", predicted: "guess", user_supplied: "entered by staff",
+};
+
+function ContactsPanel({ business, canEnrich }: { business: Business; canEnrich: boolean }) {
+  const [contacts, setContacts] = useState<BusinessContact[] | null>(null);
+  const [message, setMessage] = useState<{ tone: "red" | "green"; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { api<BusinessContact[]>(`/businesses/${business.id}/contacts`).then(setContacts); }, [business.id]);
+
+  const enrich = async () => {
+    setBusy(true);
+    setMessage(null);
+    try {
+      await api(`/businesses/${business.id}/enrich`, { body: {} });
+      setMessage({ tone: "green", text: "Queued. Contacts appear here once a worker has run it (see Factory jobs)." });
+    } catch (err) {
+      setMessage({ tone: "red", text: err instanceof ApiError ? err.message : "Request failed" });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-sm font-medium">Where this business&apos;s contacts came from</div>
+        {canEnrich && <Button size="sm" variant="secondary" busy={busy} onClick={enrich}>Find contacts</Button>}
+      </div>
+      {message && <Alert tone={message.tone}>{message.text}</Alert>}
+      {!contacts ? <div className="text-sm text-stone-500">Loading…</div> : contacts.length === 0 ? (
+        <div className="text-sm text-stone-500">No recorded contacts yet.</div>
+      ) : (
+        <Table head={["Contact", "Source", "Kind of evidence", "Confidence", "Status"]}>
+          {contacts.map((c) => (
+            <tr key={c.id}>
+              <Td>
+                <div className="font-medium">{c.kind === "phone" ? `+${c.value}` : c.value}</div>
+                <div className="text-xs text-stone-500">{c.kind}</div>
+              </Td>
+              <Td className="text-xs text-stone-600">
+                <div>{c.source.replaceAll("_", " ")}</div>
+                {c.source_ref && (
+                  c.source_ref.startsWith("https://") || c.source_ref.startsWith("http://")
+                    ? <a href={c.source_ref} target="_blank" rel="noopener noreferrer nofollow" className="break-all text-brand-700 underline">{c.source_ref}</a>
+                    : <div className="break-all font-mono text-stone-500">{c.source_ref}</div>
+                )}
+              </Td>
+              <Td className="text-xs">
+                <Badge tone={c.value_type === "predicted" ? "amber" : "gray"}>{VALUE_TYPE_LABEL[c.value_type]}</Badge>
+                {c.verification_status !== "unverified" && (
+                  <span className="ml-1"><Badge tone={c.verification_status === "verified" ? "green" : "red"}>{c.verification_status}</Badge></span>
+                )}
+              </Td>
+              <Td className="tabular-nums text-stone-600">{Math.round(c.confidence * 100)}%</Td>
+              <Td className="text-xs">
+                <Badge>{c.policy_decision}</Badge>
+                {c.reason_code && <div className="mt-1 font-mono text-stone-500">{c.reason_code}</div>}
+              </Td>
+            </tr>
+          ))}
+        </Table>
+      )}
+    </div>
+  );
+}
 
 const EMPTY_FORM = { name: "", industry: "", city: "", province: "", phone: "", email: "", facebook: "", website: "" };
 
 export default function BusinessesPage() {
+  const canEnrich = useUser().role !== "readonly";
+  const [open, setOpen] = useState<string | null>(null);
   const [data, setData] = useState<Page<Business> | null>(null);
   const [filters, setFilters] = useState({ q: "", status: "", candidate: false });
   const [page, setPage] = useState(1);
@@ -114,7 +184,8 @@ export default function BusinessesPage() {
         ) : (
           <Table head={["Business", "Industry", "Contact", "Score", "Status", ""]}>
             {data?.items.map((b) => (
-              <tr key={b.id}>
+              <Fragment key={b.id}>
+              <tr>
                 <Td>
                   <div className="font-medium">{b.name}</div>
                   <div className="text-xs text-stone-500">{[b.city, b.province].filter(Boolean).join(", ")}</div>
@@ -132,11 +203,20 @@ export default function BusinessesPage() {
                   </div>
                 </Td>
                 <Td className="text-right">
-                  {b.generate_candidate && ["scored", "profiled", "discovered"].includes(b.status) && (
-                    <Button size="sm" variant="secondary" busy={busy === b.id} onClick={() => generate(b)}>Generate &amp; publish</Button>
-                  )}
+                  <div className="flex justify-end gap-2">
+                    <Button size="sm" variant="ghost" aria-expanded={open === b.id} onClick={() => setOpen(open === b.id ? null : b.id)}>
+                      {open === b.id ? "Hide contacts" : "Contacts"}
+                    </Button>
+                    {b.generate_candidate && ["scored", "profiled", "discovered"].includes(b.status) && (
+                      <Button size="sm" variant="secondary" busy={busy === b.id} onClick={() => generate(b)}>Generate &amp; publish</Button>
+                    )}
+                  </div>
                 </Td>
               </tr>
+              {open === b.id && (
+                <tr><td colSpan={6} className="bg-stone-50 px-3 py-4"><ContactsPanel business={b} canEnrich={canEnrich} /></td></tr>
+              )}
+              </Fragment>
             ))}
           </Table>
         )}

@@ -99,6 +99,7 @@ class Settings(BaseSettings):
     overpass_endpoint: str = "https://overpass-api.de/api/interpreter"
     discovery_user_agent: str = "GumaWebBot/1.0 (+https://gumaweb.io/bot)"
     discovery_allow_fixture: bool | None = None  # default: on outside production
+    discovery_query_delay_seconds: float = 1.5  # pause between campaign queries (Overpass fair use): keep it
 
     # --- Contact enrichment (Guma OS port step 4) --------------------------
     enrich_after_discovery: bool = True  # queue enrichment for each newly discovered business

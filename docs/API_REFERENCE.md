@@ -76,6 +76,26 @@ CSV columns: `name` (or `business_name`), `industry, city, province, address, ph
 facebook, google_business_url, description, source_ref, latitude, longitude` (or `business_id` for `source_ref`). Sample:
 [`database/seeds/sample_businesses.csv`](../database/seeds/sample_businesses.csv).
 
+## Discovery campaigns
+
+Saved sweeps of cities x categories x sources. A run is a `DiscoveryRun` with `campaign_id` set, executed by the
+worker (`run_campaign` job) with live counters in `progress`. **One sweep runs at a time system-wide**
+(Overpass fair use): starting another answers `409 campaign_in_progress`.
+
+| Method | Path | Access | Description |
+|---|---|---|---|
+| GET / POST | `/discovery/campaigns` | reader / staff | List (each with `last_run`) / create `{name, description?, cities[], categories[], sources[], enrichment_tiers?, target ≤ 5000, per_query ≤ 500}` |
+| GET / PUT | `/discovery/campaigns/{id}` | reader / staff | Read / replace. Sources must be configured; tiers must be enabled. `enrichment_tiers`: omitted/null = every enabled tier, `[]` = none |
+| DELETE | `/discovery/campaigns/{id}` | admin | Delete; past runs are kept (`campaign_id` cleared). `409` while it runs |
+| POST | `/discovery/campaigns/{id}/run` | staff | `202` with the queued run |
+| GET | `/discovery/campaigns/{id}/runs` | reader | Run history, newest first |
+| GET | `/discovery/runs/{id}` | reader | Poll: `status` (queued/running/completed/failed/cancelled), `progress {queries_done, queries_planned, found, prospects, target, sources, current, warnings}` |
+| POST | `/discovery/runs/{id}/cancel` | staff | Stop after the current query; what was found is still imported |
+
+A failing query is recorded in `progress.warnings` and the sweep continues; a run where every query failed is
+`failed`. The sweep stops at `target` unique businesses (deduped by provider id). Queries are paced by
+`DISCOVERY_QUERY_DELAY_SECONDS` (default 1.5 s).
+
 ## Templates
 
 | Method | Path | Access | Description |

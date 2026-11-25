@@ -114,6 +114,9 @@ class DiscoveryRunRead(ORMModel):
     duplicate_count: int
     error_count: int
     errors: list[Any]
+    campaign_id: uuid.UUID | None = None
+    progress: dict[str, Any] = Field(default_factory=dict)
+    cancel_requested: bool = False
     started_at: datetime
     finished_at: datetime | None
 
@@ -164,3 +167,30 @@ class EnrichmentTierRead(BaseModel):
 
 class EnrichRequest(BaseModel):
     tiers: list[str] | None = Field(None, description="narrow to these enabled tier ids; omit for all enabled tiers")
+
+
+class CampaignWrite(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    description: str | None = Field(None, max_length=2000)
+    cities: list[str] = Field(min_length=1, max_length=50)
+    categories: list[str] = Field(min_length=1, max_length=50)
+    sources: list[str] = Field(default_factory=lambda: ["osm"], min_length=1)
+    enrichment_tiers: list[str] | None = Field(None, description="None: every enabled tier; []: no enrichment")
+    target: int = Field(100, ge=1, le=5000, description="stop once this many unique businesses are found")
+    per_query: int = Field(50, ge=1, le=500)
+
+
+class CampaignRead(ORMModel):
+    id: uuid.UUID
+    name: str
+    description: str | None
+    cities: list[str]
+    categories: list[str]
+    sources: list[str]
+    enrichment_tiers: list[str] | None
+    target: int
+    per_query: int
+    created_by: uuid.UUID | None
+    created_at: datetime
+    updated_at: datetime
+    last_run: DiscoveryRunRead | None = None

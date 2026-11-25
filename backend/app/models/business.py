@@ -124,6 +124,12 @@ class DiscoveryRun(UUIDPrimaryKeyMixin, Base):
     duplicate_count: Mapped[int] = mapped_column(Integer, default=0)
     error_count: Mapped[int] = mapped_column(Integer, default=0)
     errors: Mapped[list[Any]] = mapped_column(default=list)
+    campaign_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("discovery_campaigns.id", ondelete="SET NULL"), index=True
+    )
+    # Live campaign progress: queries_done/planned, found, prospects, current, warnings, sources.
+    progress: Mapped[dict[str, Any]] = mapped_column(default=dict)
+    cancel_requested: Mapped[bool] = mapped_column(Boolean, default=False)
     started_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     started_at: Mapped[datetime] = mapped_column(server_default=func.now())
     finished_at: Mapped[datetime | None]
@@ -164,3 +170,26 @@ class BusinessContact(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
     business: Mapped[Business] = relationship(back_populates="contacts")
+
+
+class DiscoveryCampaign(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """A saved, re-runnable sweep: cities x categories x discovery sources (ported from guma_os campaigns).
+
+    Each run is a DiscoveryRun with `campaign_id` set; the run history is just those rows.
+    """
+
+    __tablename__ = "discovery_campaigns"
+    __table_args__ = (
+        CheckConstraint("target >= 1 AND target <= 5000", name="target_range"),
+        CheckConstraint("per_query >= 1 AND per_query <= 500", name="per_query_range"),
+    )
+
+    name: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str | None] = mapped_column(Text)
+    cities: Mapped[list[Any]] = mapped_column(default=list)
+    categories: Mapped[list[Any]] = mapped_column(default=list)
+    sources: Mapped[list[Any]] = mapped_column(default=list)  # discovery source ids, e.g. ["osm"]
+    enrichment_tiers: Mapped[list[Any] | None]  # None: every enabled tier; []: no enrichment
+    target: Mapped[int] = mapped_column(Integer, default=100)  # stop once this many unique businesses are found
+    per_query: Mapped[int] = mapped_column(Integer, default=50)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))

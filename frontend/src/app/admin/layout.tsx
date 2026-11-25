@@ -9,11 +9,13 @@ import { logout } from "@/lib/api";
 
 const NAV = [
   { href: "/admin", label: "Overview" },
+  { href: "/admin/discovery", label: "Discovery" },
   { href: "/admin/businesses", label: "Businesses" },
   { href: "/admin/websites", label: "Websites" },
   { href: "/admin/jobs", label: "Factory jobs" },
   { href: "/admin/claims", label: "Claims" },
   { href: "/admin/outreach", label: "Outreach" },
+  { href: "/admin/suppressions", label: "Do-not-contact" },
   { href: "/admin/templates", label: "Templates" },
 ];
 

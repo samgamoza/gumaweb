@@ -17,6 +17,7 @@ class JobKind(StrEnum):
     CHECK_DOMAINS = "check_domains"  # Phase 5
     DISCOVER_BUSINESSES = "discover_businesses"  # Guma OS port step 3
     ENRICH_BUSINESS = "enrich_business"  # Guma OS port step 4
+    RUN_CAMPAIGN = "run_campaign"  # Guma OS port step 5
 
 
 class JobStatus(StrEnum):

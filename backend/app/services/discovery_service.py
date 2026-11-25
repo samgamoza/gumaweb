@@ -118,6 +118,17 @@ class DiscoveryService:
                 logger.warning("discovery %s %s failed (%s): %s", source, query, kind, exc)
                 return businesses.record_failed_run(label, actor, f"{type(exc).__name__}: {exc}")
 
+        records, hook = self.import_hook(found, actor)
+        run = businesses.import_records(records, label, actor, on_created=hook)
+        logger.info("discovery %s %s: %d found, %d created, %d duplicates", source, query, len(found),
+                    run.created_count, run.duplicate_count)
+        return run
+
+    def import_hook(self, found: list[DiscoveredBusiness], actor: Actor, *,
+                    enrichment_tiers: list[str] | None = None,
+                    ) -> tuple[list[RawBusinessRecord], Callable[[Business, RawBusinessRecord], None]]:
+        """Import records for `found`, plus the `on_created` hook that records phone/owner provenance and
+        queues enrichment. `enrichment_tiers`: None = every enabled tier, [] = no enrichment."""
         by_record: dict[int, DiscoveredBusiness] = {}
         records: list[RawBusinessRecord] = []
         for item in found:
@@ -126,11 +137,14 @@ class DiscoveryService:
             records.append(record)
 
         contacts = ContactService(self.db)
-        enrichment = EnrichmentService(self.db, self.settings) if self.settings.enrich_after_discovery else None
+        wants_enrichment = self.settings.enrich_after_discovery and enrichment_tiers != []
+        enrichment = EnrichmentService(self.db, self.settings) if wants_enrichment else None
+        enabled = {t.id for t in enrichment.tiers() if t.enabled} if enrichment else set()
+        tiers = None if enrichment_tiers is None else [t for t in enrichment_tiers if t in enabled]
 
         def record_provenance(business: Business, record: RawBusinessRecord) -> None:
-            if enrichment is not None and enrichment.worth_enriching(business):
-                enrichment.enqueue(business, actor, commit=False)
+            if enrichment is not None and tiers != [] and enrichment.worth_enriching(business):
+                enrichment.enqueue(business, actor, tiers, commit=False)
             item = by_record.get(id(record))
             if item is None:
                 return
@@ -146,10 +160,7 @@ class DiscoveryService:
             if observations:
                 contacts.record(business, observations, discovery_run_id=business.discovery_run_id)
 
-        run = businesses.import_records(records, label, actor, on_created=record_provenance)
-        logger.info("discovery %s %s: %d found, %d created, %d duplicates", source, query, len(found),
-                    run.created_count, run.duplicate_count)
-        return run
+        return records, record_provenance
 
 
 def run_discovery_job(db: Session, settings: Settings, payload: dict[str, Any]) -> dict[str, Any]:
