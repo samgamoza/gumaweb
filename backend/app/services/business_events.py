@@ -1,4 +1,4 @@
-"""Guma OS event fan-out: one business event → matching automation rules + subscribed webhooks.
+"""Business event fan-out: one business event → matching automation rules + subscribed webhooks.
 
 Called inside the same transaction as the state change, it only *enqueues* work
 (factory_jobs rows, webhook_deliveries rows); workers execute it. So a rolled-back

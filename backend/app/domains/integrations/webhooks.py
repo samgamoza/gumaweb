@@ -1,19 +1,19 @@
-"""Guma OS integration layer: signed outbound webhooks, API key format, SSRF-safe URLs."""
+"""Integration layer: signed outbound webhooks, API key format, SSRF-safe URLs."""
 
 from __future__ import annotations
 
 import hashlib
 import hmac
-import ipaddress
 import json
 import secrets
-import socket
 import time
 from enum import StrEnum
 from typing import Any
 from urllib.parse import urlparse
 
 from app.core.exceptions import ValidationFailedError
+from app.core.net import is_never_allowed, is_private_address
+from app.core.net import resolve_addresses as _addresses  # module-level name: tests monkeypatch it
 
 API_KEY_PREFIX = "gw_live_"
 
@@ -67,23 +67,6 @@ def encode_payload(event_type: str, data: dict[str, Any], delivery_id: str) -> b
                       default=str, separators=(",", ":")).encode()
 
 
-def _addresses(host: str) -> list[ipaddress.IPv4Address | ipaddress.IPv6Address] | None:
-    try:
-        return [ipaddress.ip_address(info[4][0]) for info in socket.getaddrinfo(host, None)]
-    except socket.gaierror:
-        return None
-
-
-def _is_private(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
-    return ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast
-
-
-def _never_allowed(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
-    # Cloud metadata services (169.254.169.254 is link-local; AWS's IPv6 endpoint fd00:ec2::254 is ULA) and
-    # unspecified/multicast addresses are never legitimate receivers, even in local development.
-    return ip.is_link_local or ip.is_unspecified or ip.is_multicast or ip == ipaddress.ip_address("fd00:ec2::254")
-
-
 def validate_webhook_url(url: str, *, allow_private: bool, require_https: bool) -> str:
     """Block SSRF: webhook targets may not point into our own network (metadata service, databases...)."""
     parsed = urlparse(url)
@@ -97,6 +80,8 @@ def validate_webhook_url(url: str, *, allow_private: bool, require_https: bool) 
     if not addresses:
         raise ValidationFailedError("Webhook URL host does not resolve")
     # allow_private (local development only) opens LAN/loopback, never metadata or link-local targets.
-    if any(_never_allowed(ip) for ip in addresses) or (not allow_private and any(_is_private(ip) for ip in addresses)):
+    if any(is_never_allowed(ip) for ip in addresses) or (
+        not allow_private and any(is_private_address(ip) for ip in addresses)
+    ):
         raise ValidationFailedError("Webhook URL must point to a public internet address")
     return url

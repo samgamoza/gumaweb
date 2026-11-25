@@ -25,7 +25,7 @@ from app.domains.crm.enums import PIPELINE, ActivityType, ContactSource, Contact
 from app.domains.crm.scoring import Touch, score_lead
 from app.domains.integrations.webhooks import WebhookEvent
 from app.models import Contact, ContactActivity
-from app.services.os_events import contact_context, emit
+from app.services.business_events import contact_context, emit
 
 GENERIC_NAMES = {"website visitor", "chat visitor", ""}
 FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")

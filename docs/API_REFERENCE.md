@@ -132,7 +132,7 @@ Public endpoints (used by the site widgets, rate limited):
 | GET | `/public/booking/{token}` · POST `/public/booking/{token}/cancel` | Manage-link details / cancel |
 | POST | `/public/sites/{subdomain}/chat` | `{message ≤ 1000, session_token?}` → `{session_token, reply}` |
 
-## Phase 4: Guma OS (automations, receptionist, integrations)
+## Phase 4: Automations, receptionist, integrations
 
 | Method | Path | Plan | Description |
 |---|---|---|---|

@@ -1,5 +1,14 @@
 """Import every model so Base.metadata is complete (Alembic autogenerate, create_all)."""
 
+from app.models.automation import (
+    ApiKey,
+    AutomationRule,
+    AutomationRun,
+    Call,
+    VoiceSettings,
+    WebhookDelivery,
+    WebhookEndpoint,
+)
 from app.models.business import Business, BusinessProfile, DiscoveryRun
 from app.models.claim import Claim
 from app.models.customer import Customer, Lead, Plan, Subscription
@@ -14,15 +23,6 @@ from app.models.engagement import (
     KnowledgeEntry,
 )
 from app.models.factory import AIGeneration, FactoryJob
-from app.models.guma_os import (
-    ApiKey,
-    AutomationRule,
-    AutomationRun,
-    Call,
-    VoiceSettings,
-    WebhookDelivery,
-    WebhookEndpoint,
-)
 from app.models.outreach import OutreachCampaign, OutreachEvent, OutreachMessage, OutreachSuppression
 from app.models.platform import AuditLog, DomainEvent, SiteEvent
 from app.models.presence import CustomDomain, Mailbox, MailDomain, PresenceKit

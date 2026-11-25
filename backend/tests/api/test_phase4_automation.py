@@ -1,4 +1,4 @@
-"""Phase 4 (Guma OS integration): lead intelligence, automations, webhooks, API keys, AI receptionist."""
+"""Phase 4 (automation and integrations): lead intelligence, automations, webhooks, API keys, AI receptionist."""
 
 import json
 import re

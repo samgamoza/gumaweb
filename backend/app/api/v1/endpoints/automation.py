@@ -1,4 +1,4 @@
-"""Phase 4 (Guma OS) API: automations, AI receptionist, integrations, and the telephony gateway."""
+"""Phase 4 API: automations, AI receptionist, integrations, and the telephony gateway."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from app.models import (
     WebhookDelivery,
     WebhookEndpoint,
 )
-from app.schemas.guma_os import (
+from app.schemas.automation import (
     ApiKeyCreate,
     ApiKeyCreated,
     ApiKeyRead,

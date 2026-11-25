@@ -1,4 +1,4 @@
-"""Guma OS integration: customer API keys and signed outbound webhooks."""
+"""Integrations: customer API keys and signed outbound webhooks."""
 
 from __future__ import annotations
 

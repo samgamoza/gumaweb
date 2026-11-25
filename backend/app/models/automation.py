@@ -1,4 +1,4 @@
-"""Phase 4 (Guma OS integration) aggregates: automation, voice receptionist, API keys, webhooks."""
+"""Phase 4 aggregates: automation, voice receptionist, API keys, webhooks."""
 
 from __future__ import annotations
 
@@ -77,7 +77,7 @@ class Call(UUIDPrimaryKeyMixin, Base):
     duration_seconds: Mapped[int | None] = mapped_column(Integer)
 
 
-# --- Guma OS integration: API keys + webhooks ---------------------------------------------------
+# --- Integrations: API keys + webhooks ---------------------------------------------------------
 class ApiKey(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "api_keys"
 
