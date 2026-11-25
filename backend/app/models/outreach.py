@@ -11,6 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin, enum_type
 from app.domains.outreach.enums import CampaignStatus, MessageStatus, OutreachChannel, OutreachEventType
+from app.domains.outreach.suppression import SuppressionKind
 
 
 class OutreachCampaign(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -64,10 +65,17 @@ class OutreachEvent(UUIDPrimaryKeyMixin, Base):
 
 
 class OutreachSuppression(UUIDPrimaryKeyMixin, Base):
-    """Do-not-contact list (communications compliance)."""
+    """Do-not-contact list (communications compliance): one email address, or a whole domain.
+
+    Rules live in `domains/outreach/suppression.py`; `value` is always stored normalized.
+    """
 
     __tablename__ = "outreach_suppressions"
+    __table_args__ = (UniqueConstraint("kind", "value"),)
 
-    email: Mapped[str] = mapped_column(String(320), unique=True)
+    kind: Mapped[SuppressionKind] = mapped_column(enum_type(SuppressionKind), default=SuppressionKind.EMAIL)
+    value: Mapped[str] = mapped_column(String(320))
     reason: Mapped[str] = mapped_column(String(64), default="unsubscribed")
+    note: Mapped[str | None] = mapped_column(Text)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

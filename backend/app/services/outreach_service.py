@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import html
 import secrets
 from datetime import UTC, datetime, timedelta
@@ -15,20 +16,21 @@ from app.domains.audit.actions import AuditAction
 from app.domains.business_discovery.enums import BusinessStatus
 from app.domains.outreach.enums import CampaignStatus, MessageStatus, OutreachChannel, OutreachEventType
 from app.domains.outreach.sequence import DEFAULT_SEQUENCE, render_message, validate_sequence
+from app.domains.outreach.suppression import SuppressionKind, SuppressionReason
 from app.domains.website_factory.enums import WebsiteStatus
 from app.models import (
     Business,
     OutreachCampaign,
     OutreachEvent,
     OutreachMessage,
-    OutreachSuppression,
     Website,
 )
 from app.repositories.repositories import OutreachRepository
 from app.schemas.outreach import CampaignCreate, CampaignStats, DispatchResult, LaunchResult
 from app.services.notifications import EmailMessage
 from app.services.providers import providers
-from app.services.support import Actor, EventType, audit, record_event
+from app.services.support import SYSTEM, Actor, EventType, audit, record_event
+from app.services.suppression_service import SuppressionService, not_suppressed
 
 
 class OutreachService:
@@ -36,6 +38,7 @@ class OutreachService:
         self.db = db
         self.settings = settings
         self.repo = OutreachRepository(db)
+        self.suppressions = SuppressionService(db)
 
     def _api(self, path: str) -> str:
         return f"{self.settings.api_public_url.rstrip('/')}{self.settings.api_v1_prefix}{path}"
@@ -63,7 +66,6 @@ class OutreachService:
             raise ConflictError(f"Campaign is {campaign.status.value}")
         f = campaign.target_filter or {}
         enrolled_ids = select(OutreachMessage.business_id).where(OutreachMessage.campaign_id == campaign.id)
-        suppressed = select(OutreachSuppression.email)
         stmt = (
             select(Business, Website)
             .join(Website, Website.business_id == Business.id)
@@ -72,7 +74,7 @@ class OutreachService:
                 Website.is_claimed.is_(False),
                 Business.status != BusinessStatus.ARCHIVED,
                 Business.email.is_not(None),
-                Business.email.not_in(suppressed),
+                not_suppressed(Business.email),
                 Business.id.not_in(enrolled_ids),
             )
             .order_by(Business.score.desc().nulls_last())
@@ -129,7 +131,7 @@ class OutreachService:
         sent = skipped = failed = 0
         for message in self.db.scalars(stmt).all():
             website = self.db.get(Website, message.website_id) if message.website_id else None
-            if website is None or website.is_claimed or self.repo.is_suppressed(message.recipient):
+            if website is None or website.is_claimed or self.suppressions.is_suppressed(message.recipient):
                 message.status = MessageStatus.SKIPPED
                 skipped += 1
                 continue
@@ -189,8 +191,11 @@ class OutreachService:
         message = self.repo.message_by_token(token)
         if message is None:
             return False
-        if not self.repo.is_suppressed(message.recipient):
-            self.db.add(OutreachSuppression(email=message.recipient, reason="unsubscribed"))
+        # Always record the address itself, even if its domain is already suppressed: removing a domain
+        # suppression later must not silently re-subscribe someone who unsubscribed personally.
+        with contextlib.suppress(ValidationFailedError):  # not a valid address: the messages are still skipped
+            self.suppressions.add(SuppressionKind.EMAIL, message.recipient, SuppressionReason.UNSUBSCRIBED, SYSTEM,
+                                  commit=False)
         self.db.execute(
             update(OutreachMessage)
             .where(OutreachMessage.recipient == message.recipient,

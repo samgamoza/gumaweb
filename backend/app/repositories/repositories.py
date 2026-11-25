@@ -22,7 +22,6 @@ from app.models import (
     DomainEvent,
     OutreachCampaign,
     OutreachMessage,
-    OutreachSuppression,
     Plan,
     Subscription,
     Template,
@@ -190,9 +189,6 @@ class OutreachRepository(Repository[OutreachCampaign]):
 
     def message_by_token(self, token: str) -> OutreachMessage | None:
         return self.db.scalar(select(OutreachMessage).where(OutreachMessage.tracking_token == token))
-
-    def is_suppressed(self, email: str) -> bool:
-        return self.db.scalar(select(OutreachSuppression.id).where(OutreachSuppression.email == email)) is not None
 
     def latest_message_for_business(self, business_id: uuid.UUID) -> OutreachMessage | None:
         return self.db.scalar(

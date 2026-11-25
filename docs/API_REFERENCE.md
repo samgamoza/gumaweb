@@ -213,6 +213,19 @@ Eligible means: published, unclaimed, has an email, not suppressed, and not alre
 tracking routes: `GET /public/outreach/open/{token}.gif`, `/public/outreach/click/{token}` (302 to the
 site) and `/public/outreach/unsubscribe/{token}`.
 
+**Do-not-contact list.** A suppression is one email address or a whole domain (`acme.ph` blocks every address at
+exactly that domain, not its subdomains). Enrollment, dispatch and contact enrichment all check both. Any staff
+member may add one; only an admin may remove one. Every add/remove is audit-logged.
+
+| Method | Path | Role | Description |
+|---|---|---|---|
+| GET | `/outreach/suppressions?kind=` | reader | List, newest first |
+| POST | `/outreach/suppressions` | staff | `{kind: email\|domain, value, reason: unsubscribed\|requested\|bounced\|complaint\|legal, note?}`. Idempotent: `201` when created, `200` with the existing entry |
+| DELETE | `/outreach/suppressions/{kind}/{value}` | admin | Remove; `404` if absent |
+| GET | `/outreach/suppressions/check?email=` | reader | `{suppressed, matched_kind, matched_value}` |
+
+CLI: `python -m app.cli suppress add|remove|check|list [VALUE] [--domain] [--reason R] [--note TEXT]`.
+
 ## Billing, analytics, administration
 
 | Method | Path | Access | Description |

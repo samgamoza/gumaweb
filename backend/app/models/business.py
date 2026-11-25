@@ -15,11 +15,19 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin, enum_type
+from app.domains.business_discovery.contacts import (
+    ContactKind,
+    ContactPurpose,
+    PolicyDecision,
+    ValueType,
+    VerificationStatus,
+)
 from app.domains.business_discovery.enums import BusinessStatus, DiscoveryRunStatus, DiscoverySource
 from app.domains.business_profile.enums import ProfileSource
 
@@ -73,6 +81,9 @@ class Business(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         back_populates="business", uselist=False, cascade="all, delete-orphan"
     )
     website_record: Mapped[Website | None] = relationship(back_populates="business", uselist=False)
+    contacts: Mapped[list[BusinessContact]] = relationship(
+        back_populates="business", cascade="all, delete-orphan", order_by="BusinessContact.acquired_at"
+    )
 
 
 class BusinessProfile(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -116,3 +127,40 @@ class DiscoveryRun(UUIDPrimaryKeyMixin, Base):
     started_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     started_at: Mapped[datetime] = mapped_column(server_default=func.now())
     finished_at: Mapped[datetime | None]
+
+
+class BusinessContact(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """One email/phone/owner we learned about a business, with where it came from (provenance).
+
+    Rules (what may become `Business.email`/`phone`) live in `domains/business_discovery/contacts.py`.
+    """
+
+    __tablename__ = "business_contacts"
+    __table_args__ = (
+        UniqueConstraint("business_id", "kind", "value"),
+        CheckConstraint("confidence >= 0 AND confidence <= 1", name="confidence_range"),
+        Index("ix_business_contacts_kind_value", "kind", "value"),
+    )
+
+    business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[ContactKind] = mapped_column(enum_type(ContactKind))
+    value: Mapped[str] = mapped_column(String(320))
+    source: Mapped[str] = mapped_column(String(64))
+    source_ref: Mapped[str | None] = mapped_column(String(500))
+    value_type: Mapped[ValueType] = mapped_column(enum_type(ValueType), default=ValueType.OBSERVED)
+    verification_status: Mapped[VerificationStatus] = mapped_column(
+        enum_type(VerificationStatus), default=VerificationStatus.UNVERIFIED
+    )
+    confidence: Mapped[float] = mapped_column(Float, default=1.0)
+    purpose: Mapped[ContactPurpose] = mapped_column(
+        enum_type(ContactPurpose), default=ContactPurpose.CONTACT_ENRICHMENT
+    )
+    policy_decision: Mapped[PolicyDecision] = mapped_column(enum_type(PolicyDecision), default=PolicyDecision.ALLOW)
+    reason_code: Mapped[str | None] = mapped_column(String(64))
+    acquired_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    retention_until: Mapped[datetime | None]
+    discovery_run_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("discovery_runs.id", ondelete="SET NULL")
+    )
+
+    business: Mapped[Business] = relationship(back_populates="contacts")
