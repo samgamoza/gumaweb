@@ -133,7 +133,29 @@ python -m app.cli worker [--once]                  # jobs, event relay, automati
 python -m app.cli dispatch-outreach
 python -m app.cli rescore-leads                    # refresh lead scores silently (nightly / after upgrading)
 python -m app.cli mail-bootstrap --hostname H --domain D  # first-run setup of a fresh Stalwart
+python -m app.cli suppress add owner@shop.ph       # do-not-contact; also queues a scrub of stored contacts
+python -m app.cli suppress add shop.ph --domain    # a whole domain (subdomains need their own entry)
+python -m app.cli suppress check owner@shop.ph     # list | remove work the same way
 ```
+
+### Live discovery and enrichment
+
+Discovery runs on the worker (`discover_businesses`, `run_campaign` and `enrich_business` jobs), so start
+`python -m app.cli worker` before using **Admin → Discovery**.
+
+* **OpenStreetMap** is free and needs no key, so it's the source to test code against. Use the public Overpass
+  server fairly: keep the pause between campaign queries (`DISCOVERY_QUERY_DELAY_SECONDS`) and a
+  `DISCOVERY_USER_AGENT` that identifies us. If it times out, point `OVERPASS_ENDPOINT` at a mirror
+  (e.g. `https://overpass.kumi.systems/api/interpreter`).
+* **Google Places** needs `GOOGLE_MAPS_API_KEY` from a project with billing enabled.
+* **Fixture** returns fictional listings (555 numbers, `.example` sites) for offline work and demos. It is
+  off in production unless `DISCOVERY_ALLOW_FIXTURE=true`.
+* **Enrichment** scrapes the business's own website for free. RDAP (`ENRICH_ALLOW_RDAP`) and Hunter
+  (`HUNTER_API_KEY` **and** `ENRICH_ALLOW_HUNTER`) are opt-in. Hunter only runs for leads scoring at least
+  `ENRICH_PAID_MIN_SCORE`. Paid calls are counted in the `provider_usage` table. Social pages (Facebook etc.)
+  are never scraped.
+* Tests never touch the network: `tests/conftest.py` turns off enrichment's website fetches, and the discovery
+  tests replace `http_client_factory`.
 
 Phase 4 local testing: set `WEBHOOK_ALLOW_PRIVATE=true` to send webhooks to a receiver on your machine
 (`http://host.docker.internal:<port>/...` from Docker; metadata/link-local addresses stay blocked). Set
@@ -167,3 +189,21 @@ docker compose --profile mail up -d --force-recreate stalwart && docker compose 
   `API_PUBLIC_URL` and `SITE_URL_TEMPLATE` to match.
 * **Published sites missing their claim-banner link:** `FRONTEND_URL` was wrong at publish time.
   Fix it and republish (`POST /websites/{id}/publish`).
+* **Google discovery fails with `429 RESOURCE_EXHAUSTED`:** the key's daily quota is used up (trial-tier keys
+  allow about 100 text searches a day). It isn't a code bug, and the quota resets about 24 hours later. Use
+  OpenStreetMap in the meantime.
+* **OpenStreetMap finds 0 businesses for a PH city:** OSM often names the city without "City" ("Angeles", not
+  "Angeles City"). The provider already tries "X", "X City" and "City of X". If that still finds nothing, look
+  the place up on openstreetmap.org and use its exact name.
+* **Overpass `504`/timeouts:** the public server is busy. Retry later or set `OVERPASS_ENDPOINT` to a mirror.
+* **A password set through `su -c "..."` doesn't work:** inside double quotes, bash expands `$` and `!` (`$!` is
+  the last background job's PID) before Postgres sees the password. Pick passwords with no shell-special
+  characters for anything set this way.
+* **Self-hosting in a Proxmox unprivileged LXC:**
+  * The stock Debian `redis-server.service` fails with `status=226/NAMESPACE`. Use a minimal systemd unit
+    without the sandboxing options. Redis logs go to `/var/log/redis/redis-server.log`, not journald.
+  * Minimal Debian containers have no `sudo`: use `su postgres -c "psql -c \"...\""`.
+  * The Proxmox web console mangles multi-line pastes. Run `bind 'set enable-bracketed-paste off'` in that
+    shell first.
+* **Windows PowerShell 5.1 reports `NativeCommandError` for git/gh:** it wraps their progress output on stderr.
+  Read the actual output. Avoid `2>&1` on native commands.
