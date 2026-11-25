@@ -8,8 +8,8 @@ What already exists in Gumaweb (the hook):
 * `app/domains/dialer/`: the `Dialer` protocol and v1 contract types (`DialerContact`, `DialerEvent`,
   `CallOutcome`, `PushStatus`), `to_e164()`, `external_ref()`, and `NullDialer`.
 * `providers.dialer` (composition root), selected by `DIALER_PROVIDER` (only `none` today).
-* The sales CRM logs calls by hand as activities; when a dialer is connected, its outcomes become the same
-  activities (see the CRM plan).
+* The outbound engine (A4) logs calls by hand as activities; when a dialer is connected, its outcomes become the same
+  activities (see `OUTBOUND_ENGINE_PLAN.md`, A4).
 
 Checklist when GumaDial is ready:
 1. In GumaDial: G0 (repo + green suite) and approve ADR-0004 (D1, D3).

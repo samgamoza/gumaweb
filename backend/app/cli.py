@@ -8,6 +8,7 @@
     python -m app.cli worker [--once]                      # factory worker: jobs + event outbox relay
     python -m app.cli dispatch-outreach
     python -m app.cli suppress add|remove|list [VALUE] [--domain] [--reason R] [--note TEXT]
+    python -m app.cli backfill-prospects                   # build the sales CRM from history (idempotent)
 """
 
 from __future__ import annotations
@@ -31,6 +32,7 @@ from app.schemas.website import GenerateBatchRequest
 from app.services.auth_service import AuthService
 from app.services.crm_service import CrmService
 from app.services.outreach_service import OutreachService
+from app.services.prospect_service import ProspectService
 from app.services.publishing_service import PublishingService
 from app.services.support import SYSTEM
 from app.services.suppression_service import SuppressionService
@@ -118,6 +120,7 @@ def main(argv: list[str] | None = None) -> int:
     gen.add_argument("--publish", action="store_true")
     sub.add_parser("dispatch-outreach")
     sub.add_parser("rescore-leads", help="backfill/refresh lead scores without firing alerts (nightly)")
+    sub.add_parser("backfill-prospects", help="build sales CRM prospects and timelines from history (idempotent)")
     mail = sub.add_parser("mail-bootstrap", help="first-run setup of a fresh Stalwart mail server")
     mail.add_argument("--hostname", required=True, help="the mail server's public name, e.g. mail.gumaweb.io")
     mail.add_argument("--domain", required=True, help="the platform's own mail domain, e.g. gumaweb.io")
@@ -173,6 +176,8 @@ def main(argv: list[str] | None = None) -> int:
                 result = {"rescored": CrmService(db, settings).rescore_all()}
             elif args.command == "suppress":
                 result = cmd_suppress(db, args)
+            elif args.command == "backfill-prospects":
+                result = vars(ProspectService(db).backfill())
             elif args.command == "create-admin":
                 user = AuthService(db).ensure_admin(args.email, args.password)
                 result = {"admin": user.email}

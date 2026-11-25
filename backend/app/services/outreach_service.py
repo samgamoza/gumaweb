@@ -28,6 +28,7 @@ from app.models import (
 from app.repositories.repositories import OutreachRepository
 from app.schemas.outreach import CampaignCreate, CampaignStats, DispatchResult, LaunchResult
 from app.services.notifications import EmailMessage
+from app.services.prospect_service import ProspectService
 from app.services.providers import providers
 from app.services.support import SYSTEM, Actor, EventType, audit, record_event
 from app.services.suppression_service import SuppressionService, not_suppressed
@@ -167,8 +168,10 @@ class OutreachService:
 
     # --- Tracking -------------------------------------------------------------------
     def _event(self, message: OutreachMessage, event_type: OutreachEventType) -> None:
-        self.db.add(OutreachEvent(business_id=message.business_id, campaign_id=message.campaign_id,
-                                  message_id=message.id, channel=message.channel, event_type=event_type))
+        event = OutreachEvent(business_id=message.business_id, campaign_id=message.campaign_id,
+                              message_id=message.id, channel=message.channel, event_type=event_type)
+        self.db.add(event)
+        ProspectService(self.db).record_outreach(event, message)  # the sales CRM timeline and stage
 
     def track_open(self, token: str) -> None:
         message = self.repo.message_by_token(token)
