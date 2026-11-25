@@ -5,6 +5,7 @@ from __future__ import annotations
 import httpx
 
 from app.core.config import get_settings
+from app.domains.dialer import Dialer, build_dialer
 from app.domains.publishing.renderer import SiteRenderer
 from app.domains.publishing.storage import LocalSiteStorage, S3SiteStorage, SiteStorage
 from app.services.dns_resolver import DnsResolver, LiveDnsResolver
@@ -27,6 +28,17 @@ class Providers:
         self._http: httpx.Client | None = None
         self._dns: DnsResolver | None = None
         self._mail: MailProvider | None = None
+        self._dialer: Dialer | None = None
+
+    @property
+    def dialer(self) -> Dialer:
+        if self._dialer is None:
+            self._dialer = build_dialer(get_settings().dialer_provider)
+        return self._dialer
+
+    @dialer.setter
+    def dialer(self, value: Dialer) -> None:
+        self._dialer = value
 
     @property
     def email(self) -> EmailSender:

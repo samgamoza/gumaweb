@@ -1,6 +1,22 @@
 # Outreach × GumaDial bridge — development plan
 
-Status: **proposed** (2026-11-25). Nothing here is built yet.
+Status: **parked** (2026-11-26). GumaDial isn't ready; work resumes once it is.
+
+## Resume here
+
+What already exists in Gumaweb (the hook):
+* `app/domains/dialer/`: the `Dialer` protocol and v1 contract types (`DialerContact`, `DialerEvent`,
+  `CallOutcome`, `PushStatus`), `to_e164()`, `external_ref()`, and `NullDialer`.
+* `providers.dialer` (composition root), selected by `DIALER_PROVIDER` (only `none` today).
+* The sales CRM logs calls by hand as activities; when a dialer is connected, its outcomes become the same
+  activities (see the CRM plan).
+
+Checklist when GumaDial is ready:
+1. In GumaDial: G0 (repo + green suite) and approve ADR-0004 (D1, D3).
+2. Re-check §2 against GumaDial's code; it was written against GumaDial as of 2026-09-24.
+3. GumaDial G1–G4. Gumaweb: add `GumaDialDialer` in `app/domains/dialer/`, allow
+   `DIALER_PROVIDER=gumadial`, then W1–W6 (W0's CSV export is optional by then).
+4. Decide D2, D4–D6.
 
 Goal: make outreach multi-channel. Gumaweb finds businesses, builds their sites and runs email; GumaDial
 (`D:\All Apps\gumadial`) is a human-operated calling platform. Connect them so the businesses email can't
