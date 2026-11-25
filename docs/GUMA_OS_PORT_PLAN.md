@@ -107,7 +107,22 @@ where noted.
   Predicted/guessed emails (RDAP, pattern) are stored but **never promoted** and never used by outreach.
 - Outreach keeps reading `Business.email`, so no outreach code changes beyond 2a.
 
-### Step 3 — live discovery providers
+### Step 3 — live discovery providers — **done**
+
+> Landed as `domains/business_discovery/providers/` (`osm`, `google_places`, `fixture`, `registry`),
+> `services/discovery_service.py`, `JobKind.DISCOVER_BUSINESSES`, migration `0007` (adds `osm` and `fixture`
+> discovery sources and the job kind), and `GET /businesses/discovery-sources`, `POST /businesses/discover`,
+> `GET /businesses/{id}/contacts`. New businesses get phone/owner provenance rows. Deviations and findings:
+> * **City lookup fixed.** guma_os fell back to a Metro Manila box for any unknown city. Now unknown cities
+>   are matched as a Philippine admin boundary with name variants; a live check showed OSM names the city
+>   "Angeles", not "Angeles City", which the variants handle.
+> * Fixture listings are labelled `fixture` (not `manual`), are fictional (555 numbers, `.example` sites),
+>   and are off in production, so test rows can't pass for real data (a guma_os pain point).
+> * Source failures and quota 429s become a `failed` DiscoveryRun and the job is not retried.
+> * Rating/review-count scoring is **deferred**: `businesses` has no columns for them yet, and changing
+>   GumaWeb's weights is a product decision. Ratings are fetched (Google) but not stored.
+> * Overpass is slow (35–55 s per query in live checks) and the main endpoint can time out; the endpoint is
+>   configurable (`OVERPASS_ENDPOINT`) for a mirror.
 
 - **From:** `adapter-maps/src/osm.ts` (139), `discovery.ts` (295: Google Places + fixture + `scoreLead`),
   `adapter-pcci/src/pcci-discovery.ts` (189). **Tests: discovery 26, pcci 4.**
