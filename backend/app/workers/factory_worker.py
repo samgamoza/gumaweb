@@ -124,6 +124,12 @@ def _run_campaign(db: Session, settings: Settings, payload: dict[str, Any]) -> d
     return run_campaign_job(db, settings, payload)
 
 
+def _scrub_suppression(db: Session, settings: Settings, payload: dict[str, Any]) -> dict[str, Any]:
+    from app.services.suppression_scrub import run_scrub_job
+
+    return run_scrub_job(db, settings, payload)
+
+
 HANDLERS: dict[JobKind, Handler] = {
     JobKind.GENERATE_WEBSITE: _generate,
     JobKind.REGENERATE_WEBSITE: _regenerate,
@@ -136,6 +142,7 @@ HANDLERS: dict[JobKind, Handler] = {
     JobKind.DISCOVER_BUSINESSES: _discover,
     JobKind.ENRICH_BUSINESS: _enrich,
     JobKind.RUN_CAMPAIGN: _run_campaign,
+    JobKind.SCRUB_SUPPRESSION: _scrub_suppression,
 }
 
 

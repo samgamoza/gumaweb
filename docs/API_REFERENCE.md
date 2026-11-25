@@ -268,6 +268,11 @@ site) and `/public/outreach/unsubscribe/{token}`.
 exactly that domain, not its subdomains). Enrollment, dispatch and contact enrichment all check both. Any staff
 member may add one; only an admin may remove one. Every add/remove is audit-logged.
 
+Adding one also queues a `scrub_suppression` job that marks matching stored contacts `blocked` (kept, with a
+reason code, so the trail stays visible) and skips matching queued messages. A business's own `email` is never
+erased: it is also its public address (site, claims, owner notices); outreach simply skips it. The job result
+reports `contacts_blocked`, `messages_skipped` and `businesses_now_skipped_by_outreach`.
+
 | Method | Path | Role | Description |
 |---|---|---|---|
 | GET | `/outreach/suppressions?kind=` | reader | List, newest first |

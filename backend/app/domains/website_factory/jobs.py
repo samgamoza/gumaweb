@@ -18,6 +18,7 @@ class JobKind(StrEnum):
     DISCOVER_BUSINESSES = "discover_businesses"  # Guma OS port step 3
     ENRICH_BUSINESS = "enrich_business"  # Guma OS port step 4
     RUN_CAMPAIGN = "run_campaign"  # Guma OS port step 5
+    SCRUB_SUPPRESSION = "scrub_suppression"  # Guma OS port step 6
 
 
 class JobStatus(StrEnum):
