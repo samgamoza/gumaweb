@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from datetime import UTC, datetime
 from typing import Any
 
@@ -17,7 +17,7 @@ from app.domains.business_discovery import normalization as norm
 from app.domains.business_discovery.enums import BusinessStatus, DiscoveryRunStatus, DiscoverySource
 from app.domains.business_discovery.lifecycle import advance
 from app.domains.business_discovery.scoring import ScoringInput, score_business
-from app.domains.business_discovery.sources import InvalidRecord, SourceItem
+from app.domains.business_discovery.sources import InvalidRecord, RawBusinessRecord, SourceItem
 from app.domains.business_profile.enums import ProfileSource
 from app.domains.business_profile.industry_catalog import classify, get_industry
 from app.domains.business_profile.profiler import ProfileInput
@@ -83,8 +83,10 @@ class BusinessService:
             self.db.commit()
         return business
 
-    def import_records(self, records: Iterable[SourceItem], source: DiscoverySource,
-                       actor: Actor) -> DiscoveryRun:
+    def import_records(self, records: Iterable[SourceItem], source: DiscoverySource, actor: Actor, *,
+                       on_created: Callable[[Business, RawBusinessRecord], None] | None = None) -> DiscoveryRun:
+        """Import a batch as one DiscoveryRun. `on_created` runs inside each new business's savepoint
+        (e.g. to record contact provenance), so a failure there rolls back that business only."""
         run = self.runs.add(DiscoveryRun(source=source, started_by=actor.user_id, errors=[]))
         self.db.commit()
         errors: list[dict[str, Any]] = []
@@ -99,7 +101,9 @@ class BusinessService:
                 try:
                     with self.db.begin_nested():
                         payload = BusinessCreate(**{**record.__dict__, "source": source})
-                        self.create(payload, actor, run=run, commit=False)
+                        business = self.create(payload, actor, run=run, commit=False)
+                        if on_created is not None:
+                            on_created(business, record)
                     run.created_count += 1
                 except ConflictError:
                     run.duplicate_count += 1
@@ -115,6 +119,15 @@ class BusinessService:
         run.finished_at = datetime.now(UTC)
         audit(self.db, actor, AuditAction.BUSINESS_IMPORTED, "discovery_run", run.id,
               {"created": run.created_count, "duplicates": run.duplicate_count, "errors": run.error_count})
+        self.db.commit()
+        return run
+
+    def record_failed_run(self, source: DiscoverySource, actor: Actor, error: str) -> DiscoveryRun:
+        """A run that never got records (the source itself failed), so failures stay visible in history."""
+        now = datetime.now(UTC)
+        run = self.runs.add(DiscoveryRun(source=source, started_by=actor.user_id, status=DiscoveryRunStatus.FAILED,
+                                         errors=[{"row": None, "error": error[:300]}], finished_at=now))
+        audit(self.db, actor, AuditAction.BUSINESS_IMPORTED, "discovery_run", run.id, {"failed": error[:300]})
         self.db.commit()
         return run
 

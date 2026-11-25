@@ -34,15 +34,29 @@ OpenAPI JSON: `/api/v1/openapi.json`.
 | GET | `/businesses` | reader | Filters: `q, status, industry, city, min_score, generate_candidate`. Sorted by score. |
 | POST | `/businesses` | staff | Create → normalized, deduplicated (409 `duplicate_business`), scored |
 | POST | `/businesses/import` | staff | Multipart `file` (`.csv` or `.json`, ≤ 10 MB) → `DiscoveryRun` with per-row errors |
-| GET | `/businesses/discovery-runs` | reader | Recent import runs |
+| GET | `/businesses/discovery-runs` | reader | Recent import and discovery runs (failed source calls appear as `failed` runs with the error) |
+| GET | `/businesses/discovery-sources` | reader | Live sources: `{id, name, category, discovery_source, requires_key, configured, billed, note}` |
+| POST | `/businesses/discover` | staff | `{source, category?, city?, query?, limit ≤ 500}` → `202` queued job (`discover_businesses`). `409 discovery_in_progress` if the same search is already queued or running; `422` for an unknown, unconfigured or disabled source |
+| GET | `/businesses/{id}/contacts` | reader | Every contact learned about the business, with provenance (source, source_ref, value_type, confidence, policy decision) |
 | GET / PATCH | `/businesses/{id}` | reader / staff | Read / update (re-normalizes and re-scores) |
 | DELETE | `/businesses/{id}` | staff | Archive (soft delete) |
 | POST | `/businesses/{id}/score` | staff | Recompute the opportunity score |
 | POST | `/businesses/{id}/profile?force=` | staff | Build the intelligence profile (manual profiles are kept) |
 | GET / PATCH | `/businesses/{id}/profile` | reader / staff | Read / edit services, audience, tone, tagline |
 
+**Live discovery.** The worker runs the queued job, then imports results through the same normalize / dedupe /
+score pipeline as a CSV import; the job's `result` holds the `discovery_run_id`. Sources:
+
+* `osm`: OpenStreetMap via Overpass. Free, no key, needs a `city`. Known big cities use a bounding box; any
+  other city is matched as a Philippine administrative boundary ("X", "X City" or "City of X").
+* `google_places`: Google Places API (New) Text Search. Needs `GOOGLE_MAPS_API_KEY` on a billing-enabled
+  project; at most 20 results per request.
+* `fixture`: fictional listings (555 numbers, `.example` sites) for tests and demos. Off in production.
+
+A source error or quota refusal (429) is recorded as a failed run and is not retried automatically.
+
 CSV columns: `name` (or `business_name`), `industry, city, province, address, phone, email, website,
-facebook, google_business_url, description, source_ref` (or `business_id`). Sample:
+facebook, google_business_url, description, source_ref, latitude, longitude` (or `business_id` for `source_ref`). Sample:
 [`database/seeds/sample_businesses.csv`](../database/seeds/sample_businesses.csv).
 
 ## Templates

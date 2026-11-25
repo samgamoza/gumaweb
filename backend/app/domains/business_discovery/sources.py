@@ -1,8 +1,9 @@
 """Discovery connectors (Crawl stage).
 
-Phase 1 ships file-based importers (CSV/JSON). Directory and platform connectors
-(DTI, Chamber, Yellow Pages, Google Business, Facebook) implement the same
-protocol; they must respect each source's terms of service and robots.txt and
+File-based importers (CSV/JSON) live here. Live sources (OpenStreetMap, Google
+Places) are in `providers/` and map their results onto the same RawBusinessRecord,
+so every source shares one import pipeline. New connectors (DTI, Chamber, Yellow
+Pages, Facebook) must respect each source's terms of service and robots.txt and
 prefer official data exports/APIs over scraping.
 """
 
@@ -34,6 +35,8 @@ class RawBusinessRecord:
     google_business_url: str | None = None
     description: str | None = None
     source_ref: str | None = None
+    latitude: str | None = None
+    longitude: str | None = None
 
     @classmethod
     def from_mapping(cls, row: dict[str, object]) -> RawBusinessRecord:

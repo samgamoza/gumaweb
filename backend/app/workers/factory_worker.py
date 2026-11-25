@@ -106,6 +106,12 @@ def _check_domains(db: Session, settings: Settings, payload: dict[str, Any]) -> 
     return DomainService(db, settings).recheck(SYSTEM)
 
 
+def _discover(db: Session, settings: Settings, payload: dict[str, Any]) -> dict[str, Any]:
+    from app.services.discovery_service import run_discovery_job
+
+    return run_discovery_job(db, settings, payload)
+
+
 HANDLERS: dict[JobKind, Handler] = {
     JobKind.GENERATE_WEBSITE: _generate,
     JobKind.REGENERATE_WEBSITE: _regenerate,
@@ -115,6 +121,7 @@ HANDLERS: dict[JobKind, Handler] = {
     JobKind.SUMMARIZE_CALL: _summarize_call,
     JobKind.GENERATE_PRESENCE: _presence,
     JobKind.CHECK_DOMAINS: _check_domains,
+    JobKind.DISCOVER_BUSINESSES: _discover,
 }
 
 

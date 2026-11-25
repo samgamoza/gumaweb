@@ -94,6 +94,12 @@ class Settings(BaseSettings):
     claim_rate_limit_per_hour: int = 5
     default_country_code: str = "63"  # Philippines
 
+    # --- Live discovery (Guma OS port step 3) ------------------------------
+    google_maps_api_key: str | None = None  # Places API (New), billing-enabled project
+    overpass_endpoint: str = "https://overpass-api.de/api/interpreter"
+    discovery_user_agent: str = "GumaWebBot/1.0 (+https://gumaweb.io/bot)"
+    discovery_allow_fixture: bool | None = None  # default: on outside production
+
     # --- AI content (Phase 2; local, OpenAI-compatible: vLLM / Ollama / llama.cpp) ---
     ai_enabled: bool = False
     llm_base_url: str = "http://localhost:8001/v1"
