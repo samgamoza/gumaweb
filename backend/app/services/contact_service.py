@@ -39,7 +39,6 @@ class RecordResult:
     blocked: int = 0
     invalid: int = 0
     promoted: dict[str, str] = field(default_factory=dict)  # kind -> value newly set on the business
-    cleared: list[str] = field(default_factory=list)  # kinds whose primary was removed (now suppressed)
 
 
 def normalize_contact_value(kind: ContactKind, value: str) -> str | None:
@@ -124,10 +123,9 @@ class ContactService:
         return True
 
     def _refresh_primaries(self, business: Business, contacts: list[BusinessContact], result: RecordResult) -> None:
-        # Never leave a suppressed address as the primary, wherever it originally came from.
-        if business.email and self.suppressions.is_suppressed(business.email):
-            business.email = None
-            result.cleared.append(ContactKind.EMAIL.value)
+        # An existing primary is never cleared, even when suppressed: Business.email is also the business's own
+        # public address (shown on its site, matched during claims, used for owner notifications). Suppression
+        # means *we* must not market to it, which outreach enforces at enrollment and again at send time.
         for kind, attr in ((ContactKind.EMAIL, "email"), (ContactKind.PHONE, "phone")):
             if getattr(business, attr):
                 continue  # keep an existing primary (imported or typed in); enrichment only fills gaps

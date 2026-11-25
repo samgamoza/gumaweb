@@ -207,7 +207,19 @@ where noted.
   - Keep the guma_os lesson: rows that can't be shown are **counted and surfaced**, never silently
     dropped from headline numbers.
 
-### Step 6 — retroactive suppression scrub
+### Step 6 — retroactive suppression scrub — **done**
+
+> Landed as `services/suppression_scrub.py`, `JobKind.SCRUB_SUPPRESSION` (migration `0010`), queued by
+> `SuppressionService.add` so the API, CLI and unsubscribe all trigger it. Matching contacts are marked
+> `blocked` (kept, with reason code), matching queued messages are skipped, sent history is untouched, and a
+> suppression lifted before the job runs is skipped. Idempotent and audit-logged.
+>
+> **Correction to step 2 (and to the sketch below):** `Business.email` is no longer cleared when it becomes
+> suppressed. Unlike guma_os's profile field, it is also the business's public address: shown on its generated
+> site, matched by claim risk scoring (`claimant email matches the business email` lowers risk by 40), and used
+> for booking/domain/voice owner notices. Clearing it would have pushed genuine owners into manual review and
+> could drop the email from their site. Suppression is enforced where it belongs: outreach enrollment
+> (`not_suppressed`) and the send-time check. A test now asserts an unsubscribed owner still matches on claim.
 
 - **From:** `admin/src/suppression-scrub.ts` (96, **4 tests**).
 - **To:** `JobKind.SCRUB_SUPPRESSION`, enqueued on every suppression add: mark matching

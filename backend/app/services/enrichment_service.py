@@ -194,7 +194,7 @@ class EnrichmentService:
         outcome.promoted = recorded.promoted
         outcome.tech_stack = result.tech_stack
         outcome.billed_calls = result.billed_calls
-        if recorded.promoted or recorded.cleared:
+        if recorded.promoted:
             BusinessService(self.db, self.settings).rescore(business)  # contactability changed; commits
         else:
             self.db.commit()

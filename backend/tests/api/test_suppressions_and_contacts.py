@@ -179,17 +179,18 @@ def test_suppressed_contacts_are_blocked_with_a_reason(db):
     assert business.email == "ok@open.ph"  # the only allowed one, despite the lowest confidence
 
 
-def test_existing_primary_is_kept_unless_it_is_suppressed(db):
+def test_existing_primary_is_kept_even_when_suppressed(db):
     keeper = _business(db, email="owner@kept.ph")
     ContactService(db).record(keeper, [ContactObservation(ContactKind.EMAIL, "other@kept.ph", "website_scrape")])
     assert keeper.email == "owner@kept.ph"
 
+    # Business.email is also the business's public address (site, claims, owner notices), so suppression never
+    # erases it; outreach skips it instead (see test_launch_skips_businesses_at_a_suppressed_domain).
     SuppressionService(db).add(SuppressionKind.DOMAIN, "gone.ph", SuppressionReason.LEGAL, SYSTEM)
     stale = _business(db, email="owner@gone.ph")
     result = ContactService(db).record(stale, [ContactObservation(ContactKind.EMAIL, "hi@fresh.ph", "osm")])
     db.commit()
-    assert result.cleared == ["email"]
-    assert stale.email == "hi@fresh.ph"
+    assert result.promoted == {} and stale.email == "owner@gone.ph"
 
 
 def test_repeat_sightings_only_strengthen_a_contact(db):

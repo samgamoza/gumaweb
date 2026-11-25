@@ -1,5 +1,7 @@
 """Do-not-contact list: record, remove and check suppressions (email or whole domain).
 
+Adding one also queues a retroactive scrub of stored contacts and queued messages (`suppression_scrub.py`).
+
 Every check, in Python or SQL, goes through this module so the "email or its domain" rule is applied the
 same way everywhere: outreach enrollment, dispatch, unsubscribe and contact enrichment.
 """
@@ -20,7 +22,9 @@ from app.domains.outreach.suppression import (
     normalize_suppression,
     suppression_keys,
 )
+from app.domains.website_factory.jobs import JobKind
 from app.models import OutreachSuppression
+from app.services.job_queue import JobQueue
 from app.services.support import Actor, audit
 
 
@@ -80,6 +84,9 @@ class SuppressionService:
         self.db.add(entry)
         audit(self.db, actor, AuditAction.SUPPRESSION_ADDED, "outreach_suppression", f"{kind.value}:{normalized}",
               {"reason": str(reason)})
+        # Retroactive scrub of already-stored contacts and queued messages (services/suppression_scrub.py).
+        JobQueue(self.db).enqueue(JobKind.SCRUB_SUPPRESSION, {"kind": kind.value, "value": normalized},
+                                  dedupe_key=f"scrub:{kind.value}:{normalized}"[:255], priority=50)
         if commit:
             self.db.commit()
         else:
