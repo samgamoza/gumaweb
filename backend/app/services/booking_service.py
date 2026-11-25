@@ -23,10 +23,10 @@ from app.domains.integrations.webhooks import WebhookEvent
 from app.domains.website_factory.enums import WebsiteStatus
 from app.models import Appointment, BookingSettings, Business, Contact, Website
 from app.repositories.repositories import WebsiteRepository
+from app.services.business_events import contact_context, emit
 from app.services.crm_service import CrmService
 from app.services.entitlements import plan_for_business, refresh_site
 from app.services.notifications import EmailMessage
-from app.services.os_events import contact_context, emit
 from app.services.providers import providers
 from app.services.support import Actor, EventType, record_event
 

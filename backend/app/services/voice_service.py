@@ -34,12 +34,12 @@ from app.domains.voice.dialog import Action, CallOutcome, Turn, greeting, say_ti
 from app.domains.website_factory.jobs import JobKind
 from app.models import Business, Call, Contact, VoiceSettings
 from app.services.booking_service import BookingService
+from app.services.business_events import contact_context, emit
 from app.services.chatbot_service import ChatbotService
 from app.services.crm_service import CrmService
 from app.services.entitlements import plan_for_business
 from app.services.job_queue import JobQueue
 from app.services.notifications import EmailMessage
-from app.services.os_events import contact_context, emit
 from app.services.providers import providers
 
 logger = logging.getLogger("gumaweb.voice")

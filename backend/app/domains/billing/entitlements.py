@@ -16,7 +16,7 @@ class Feature(StrEnum):
     KNOWLEDGE_BASE = "knowledge_base"
     LEAD_INTELLIGENCE = "lead_intelligence"  # Phase 4
     AUTOMATION = "automation"  # Phase 4
-    INTEGRATIONS = "integrations"  # Phase 4: API keys + webhooks (Guma OS)
+    INTEGRATIONS = "integrations"  # Phase 4: API keys + webhooks
     VOICE_RECEPTIONIST = "voice_receptionist"  # Phase 4
     SOCIAL_KIT = "social_kit"  # Phase 5: logo, profile picture, cover, bios (every plan)
     PRESENCE_KIT = "presence_kit"  # Phase 5: posts, stories, Google Business pack, SEO profile, ZIP

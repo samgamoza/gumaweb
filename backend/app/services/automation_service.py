@@ -29,9 +29,9 @@ from app.models import (
     Customer,
     User,
 )
+from app.services.business_events import contact_context
 from app.services.entitlements import plan_for_business
 from app.services.notifications import EmailMessage
-from app.services.os_events import contact_context
 from app.services.providers import providers
 
 logger = logging.getLogger("gumaweb.automation")

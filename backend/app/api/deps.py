@@ -52,7 +52,7 @@ def get_current_user(request: Request, db: DbSession,
 
 
 def _api_key_user(request: Request, db: Session, token: str) -> User:
-    """Guma OS integrations: a customer API key acts as its owner, limited to that business's
+    """Integrations: a customer API key acts as its owner, limited to that business's
     customer endpoints (staff routes reject the customer role) and optionally read-only."""
     from app.services.entitlements import require_feature
     from app.services.integration_service import IntegrationService

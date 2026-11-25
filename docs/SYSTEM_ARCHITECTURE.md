@@ -264,13 +264,13 @@ section to the contact page and a site-wide chat widget. Toggling a feature or c
 creates content for any new section, and republishes. Downgrading removes the modules from the live site and the public
 API. The widget JavaScript is vanilla, renders everything via `textContent`, and is emitted only on pages that use it.
 
-## 12. Phase 4: Guma OS Integration
+## 12. Phase 4: Automation, Voice AI and Integrations
 
 Doc 20 Phase 4 deliverables: **business automation, Voice AI, lead intelligence, Guma OS integration**. The plan
 catalog is cumulative (Free ⊂ Professional ⊂ Business Plus ⊂ AI ⊂ Voice AI). Business Plus adds lead intelligence,
 automation and integrations, and Voice AI adds the receptionist.
 
-### 12.1 One event fan-out (`services/os_events.py`)
+### 12.1 One event fan-out (`services/business_events.py`)
 ```text
 CRM capture / stage change / hot lead ─┐
 booking booked / cancelled ────────────┼─▶ emit(business, trigger, webhook event, context)   (same DB transaction)
@@ -326,7 +326,7 @@ hang-up never arrives are closed as abandoned after an hour by worker maintenanc
 `X-Voice-Gateway-Token` (constant-time compare) and returns `503` when unconfigured. The portal simulator runs the
 same engine (`is_test`, no outbound events).
 
-### 12.5 Guma OS integration layer (`domains/integrations/webhooks.py`, `services/integration_service.py`)
+### 12.5 Integration layer (`domains/integrations/webhooks.py`, `services/integration_service.py`)
 - **API keys** (`gw_live_…`): only the SHA-256 hash is stored, and the key is shown once. A key acts as its owner on the customer API only; staff routes reject the customer role. Keys can be read-only, which blocks non-GET requests. They stop working when the plan loses integrations. Credential, key, webhook and billing changes require a real login session (`human_only`).
 - **Webhooks:** events `lead.captured`, `lead.hot`, `contact.stage_changed`, `appointment.booked`, `appointment.cancelled`, `call.completed` (plus a test `ping`). The body is `{id, type, created, data}`. Headers are `GumaWeb-Event`, `GumaWeb-Delivery` and `GumaWeb-Signature: t=<unix>,v1=<hex HMAC-SHA256(secret, "t.body")>` (5-minute tolerance). Per-endpoint secrets are derived (`HMAC(server key, endpoint id : version)`), never stored, and rotate by bumping the version.
 - **SSRF defence:** http(s) only, no userinfo, every resolved address must be public, HTTPS is required in production, the URL is re-validated at send time against DNS rebinding, and redirects are not followed.

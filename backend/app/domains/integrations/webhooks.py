@@ -1,4 +1,4 @@
-"""Guma OS integration layer: signed outbound webhooks, API key format, SSRF-safe URLs."""
+"""Integration layer: signed outbound webhooks, API key format, SSRF-safe URLs."""
 
 from __future__ import annotations
 
