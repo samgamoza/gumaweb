@@ -7,6 +7,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from app.domains.outreach.enums import CampaignStatus, OutreachChannel
+from app.domains.outreach.suppression import SuppressionKind, SuppressionReason
 from app.schemas.common import ORMModel
 
 
@@ -63,3 +64,27 @@ class CampaignStats(BaseModel):
     claims: int
     conversions: int
     unsubscribes: int
+
+
+class SuppressionCreate(BaseModel):
+    kind: SuppressionKind = SuppressionKind.EMAIL
+    value: str = Field(min_length=3, max_length=320, description="an email address, or a bare domain for kind=domain")
+    reason: SuppressionReason = SuppressionReason.REQUESTED
+    note: str | None = Field(None, max_length=2000)
+
+
+class SuppressionRead(ORMModel):
+    id: uuid.UUID
+    kind: SuppressionKind
+    value: str
+    reason: str
+    note: str | None
+    created_by: uuid.UUID | None
+    created_at: datetime
+
+
+class SuppressionCheck(BaseModel):
+    email: str
+    suppressed: bool
+    matched_kind: SuppressionKind | None = None
+    matched_value: str | None = None

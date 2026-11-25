@@ -23,6 +23,7 @@ published sites. **Source of truth:** `backend/app/models/`. **Migrations:** `ba
 erDiagram
     discovery_runs ||--o{ businesses : imports
     businesses ||--o| business_profiles : "profiled as"
+    businesses ||--o{ business_contacts : "contact provenance"
     businesses ||--o| websites : "has (1 in Phase 1)"
     templates ||--o{ websites : renders
     websites ||--o{ website_content : "sections"
@@ -49,6 +50,7 @@ erDiagram
 | Identity | `users` | Staff and customer identities, RBAC role, OAuth/MFA-ready columns | `uq email`, `uq (oauth_provider, oauth_subject)`, `ix role` |
 | Discovery | `businesses` | Normalized directory record plus opportunity score | `uq slug`, `uq dedupe_key`, `ck score 0..100`, `ix (generate_candidate, score)`, `ix (industry, city)`, `ix status` |
 | Discovery | `discovery_runs` | One import/crawl batch with created/duplicate/error counters | |
+| Discovery | `business_contacts` | Every email/phone/owner learned about a business with its provenance: source, source_ref, value_type (observed/derived/predicted/user_supplied), verification, confidence, purpose, policy decision + reason code, acquired/retention dates. Only observed or user-supplied, allowed, not-invalid contacts may become `businesses.email`/`phone` | `uq (business_id, kind, value)`, `ck confidence 0..1`, `ix business_id`, `ix (kind, value)` |
 | Intelligence | `business_profiles` | Industry, category, services, keywords, tone, recommended template | `uq business_id`, `ix category` |
 | Templates | `templates` | Master template: pages → sections, theme tokens, industries | `uq slug`, `ix category` |
 | Templates | `template_components` | Component library registry | `uq slug`, `uq (component_type, variant)` |
@@ -65,7 +67,7 @@ erDiagram
 | Outreach | `outreach_campaigns` | Sequence definition and target filter | |
 | Outreach | `outreach_messages` | Rendered message per business per step, tracking token | `uq (campaign_id, business_id, step)`, `uq tracking_token`, `ix (status, scheduled_at)` |
 | Outreach | `outreach_events` | sent / opened / clicked / visited / claim_started / claim_completed / unsubscribed | `ix (business_id, event_type)`, `ix occurred_at` |
-| Outreach | `outreach_suppressions` | Do-not-contact list | `uq email` |
+| Outreach | `outreach_suppressions` | Do-not-contact list: `kind` email or domain, normalized `value`, reason, note, created_by | `uq (kind, value)` |
 | Analytics | `site_events` | Cookieless page views and interactions | `ix (website_id, event_type, occurred_at)` |
 | Audit | `audit_logs` | Who did what, when, from where | `ix action`, `ix (entity_type, entity_id)`, `ix created_at` |
 | Platform | `domain_events` | Transactional outbox (relayed to the Redis stream `gumaweb:events` by workers) | `ix event_type`, `ix processed_at` |

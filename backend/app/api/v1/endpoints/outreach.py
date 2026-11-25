@@ -2,13 +2,25 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Request, status
+from fastapi import APIRouter, Query, Request, Response, status
 
-from app.api.deps import AppSettings, DbSession, Staff, StaffReader, actor_for
-from app.models import OutreachCampaign
+from app.api.deps import Admin, AppSettings, DbSession, Staff, StaffReader, actor_for
+from app.core.exceptions import NotFoundError
+from app.domains.outreach.suppression import SuppressionKind
+from app.models import OutreachCampaign, OutreachSuppression
 from app.repositories.repositories import OutreachRepository
-from app.schemas.outreach import CampaignCreate, CampaignRead, CampaignStats, DispatchResult, LaunchResult
+from app.schemas.outreach import (
+    CampaignCreate,
+    CampaignRead,
+    CampaignStats,
+    DispatchResult,
+    LaunchResult,
+    SuppressionCheck,
+    SuppressionCreate,
+    SuppressionRead,
+)
 from app.services.outreach_service import OutreachService
+from app.services.suppression_service import SuppressionService
 
 router = APIRouter(prefix="/outreach", tags=["Outreach"])
 
@@ -60,3 +72,36 @@ def dispatch_campaign(campaign_id: uuid.UUID, _: Staff, db: DbSession, settings:
 def campaign_stats(campaign_id: uuid.UUID, _: StaffReader, db: DbSession, settings: AppSettings) -> CampaignStats:
     campaign = OutreachRepository(db).get_or_404(campaign_id)
     return OutreachService(db, settings).stats(campaign)
+
+
+# --- Do-not-contact list ---------------------------------------------------------------------------
+# Any staff member may add a suppression (the safe direction). Only an admin may remove one.
+
+
+@router.get("/suppressions", response_model=list[SuppressionRead])
+def list_suppressions(_: StaffReader, db: DbSession, kind: SuppressionKind | None = None) -> list[OutreachSuppression]:
+    return list(SuppressionService(db).list(kind))
+
+
+@router.post("/suppressions", response_model=SuppressionRead,
+             summary="Add an email or a whole domain to the do-not-contact list (idempotent)")
+def add_suppression(body: SuppressionCreate, request: Request, response: Response, user: Staff,
+                    db: DbSession) -> OutreachSuppression:
+    entry, created = SuppressionService(db).add(body.kind, body.value, body.reason, actor_for(request, user),
+                                                note=body.note)
+    response.status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+    return entry
+
+
+@router.delete("/suppressions/{kind}/{value}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_suppression(kind: SuppressionKind, value: str, request: Request, user: Admin, db: DbSession) -> None:
+    if not SuppressionService(db).remove(kind, value, actor_for(request, user)):
+        raise NotFoundError("Suppression not found")
+
+
+@router.get("/suppressions/check", response_model=SuppressionCheck,
+            summary="Would outreach to this email be blocked, and by which entry?")
+def check_suppression(_: StaffReader, db: DbSession, email: str = Query(max_length=320)) -> SuppressionCheck:
+    match = SuppressionService(db).match(email)
+    return SuppressionCheck(email=email, suppressed=match is not None,
+                            matched_kind=match.kind if match else None, matched_value=match.value if match else None)

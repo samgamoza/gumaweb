@@ -7,6 +7,7 @@
     python -m app.cli enqueue [--limit N] [--no-publish]   # queue a factory batch for the workers
     python -m app.cli worker [--once]                      # factory worker: jobs + event outbox relay
     python -m app.cli dispatch-outreach
+    python -m app.cli suppress add|remove|list [VALUE] [--domain] [--reason R] [--note TEXT]
 """
 
 from __future__ import annotations
@@ -17,11 +18,13 @@ import logging
 import sys
 
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.db.seed import seed_all
 from app.db.session import SessionLocal
+from app.domains.outreach.suppression import SuppressionKind, SuppressionReason
 from app.domains.website_factory.enums import WebsiteStatus
 from app.models import Business, Website
 from app.schemas.website import GenerateBatchRequest
@@ -30,6 +33,7 @@ from app.services.crm_service import CrmService
 from app.services.outreach_service import OutreachService
 from app.services.publishing_service import PublishingService
 from app.services.support import SYSTEM
+from app.services.suppression_service import SuppressionService
 from app.services.template_service import TemplateService
 from app.services.website_service import WebsiteService
 from app.workers.factory_worker import FactoryWorker
@@ -82,6 +86,22 @@ def cmd_generate(limit: int, publish: bool) -> dict[str, int]:
     return stats
 
 
+def cmd_suppress(db: Session, args: argparse.Namespace) -> object:
+    service = SuppressionService(db)
+    kind = SuppressionKind.DOMAIN if args.domain else SuppressionKind.EMAIL
+    if args.action == "list":
+        return [{"kind": s.kind.value, "value": s.value, "reason": s.reason, "note": s.note,
+                 "created_at": s.created_at} for s in service.list()]
+    if args.action == "check":
+        match = service.match(args.value)
+        return {"email": args.value, "suppressed": match is not None,
+                "matched": f"{match.kind.value}:{match.value}" if match else None}
+    if args.action == "add":
+        entry, created = service.add(kind, args.value, args.reason, SYSTEM, note=args.note)
+        return {"added": created, "kind": entry.kind.value, "value": entry.value}
+    return {"removed": service.remove(kind, args.value, SYSTEM)}
+
+
 def main(argv: list[str] | None = None) -> int:
     settings = get_settings()
     configure_logging(settings.log_level, settings.log_json)
@@ -104,9 +124,18 @@ def main(argv: list[str] | None = None) -> int:
     enqueue = sub.add_parser("enqueue")
     enqueue.add_argument("--limit", type=int, default=1000)
     enqueue.add_argument("--no-publish", action="store_true")
+    suppress = sub.add_parser("suppress", help="manage the do-not-contact list (email or whole domain)")
+    suppress.add_argument("action", choices=["add", "remove", "list", "check"])
+    suppress.add_argument("value", nargs="?", help="email address, or a domain with --domain")
+    suppress.add_argument("--domain", action="store_true", help="VALUE is a whole domain")
+    suppress.add_argument("--reason", default=SuppressionReason.REQUESTED.value,
+                          choices=[r.value for r in SuppressionReason])
+    suppress.add_argument("--note")
     worker = sub.add_parser("worker")
     worker.add_argument("--once", action="store_true", help="drain due jobs, relay events, then exit")
     args = parser.parse_args(argv)
+    if args.command == "suppress" and args.action != "list" and not args.value:
+        parser.error(f"suppress {args.action} needs a VALUE")
 
     if args.command == "worker":
         factory_worker = FactoryWorker(SessionLocal, settings)
@@ -142,6 +171,8 @@ def main(argv: list[str] | None = None) -> int:
                 result = TemplateService(db, settings).sync_from_disk(SYSTEM).model_dump()
             elif args.command == "rescore-leads":
                 result = {"rescored": CrmService(db, settings).rescore_all()}
+            elif args.command == "suppress":
+                result = cmd_suppress(db, args)
             elif args.command == "create-admin":
                 user = AuthService(db).ensure_admin(args.email, args.password)
                 result = {"admin": user.email}

@@ -74,7 +74,16 @@ where noted.
 - **Refactor** `validate_webhook_url` to share the same IP classifier (`_is_private`/`_never_allowed`)
   so there is one SSRF policy in the codebase.
 
-### Step 2 — suppression v2 + contact provenance (compliance first)
+### Step 2 — suppression v2 + contact provenance (compliance first) — **done**
+
+> Landed as migration `0006`, `domains/outreach/suppression.py`, `services/suppression_service.py`,
+> `domains/business_discovery/contacts.py`, `services/contact_service.py`, the `/outreach/suppressions`
+> API and `cli suppress`. Deviations from the sketch below: the old `email` column is **dropped** in the
+> same migration (backfilled into `value`, case-variant duplicates merged) rather than kept for a release,
+> because a NOT NULL unique `email` cannot hold domain rows; and the API lives under `/outreach/suppressions`
+> next to the rest of outreach. Unsubscribing always records the address itself, so lifting a domain
+> suppression never re-subscribes someone who opted out personally. Verified on SQLite and PostgreSQL,
+> including an upgrade → downgrade → upgrade round trip on seeded rows.
 
 **2a. Domain-level suppression.** From `persistence/src/ports.ts` `SuppressionRepository` +
 `adapter-postgres/src/postgres-suppression-repository.ts` + `decision/src/policy.ts` `DNCPolicy`

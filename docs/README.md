@@ -12,7 +12,7 @@ owners, and converts claimed sites into recurring SaaS customers.
 |---|---|
 | [SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md) | understand the layers, bounded contexts, factory pipeline, claim flow, AI seams and decisions (ADRs) |
 | [API_REFERENCE.md](API_REFERENCE.md) | call the API: all 106 `/api/v1` endpoints, auth, errors, rate limits |
-| [DATABASE_DESIGN.md](DATABASE_DESIGN.md) | work with the 33 tables, constraints, indexes and migrations |
+| [DATABASE_DESIGN.md](DATABASE_DESIGN.md) | work with the 45 tables, constraints, indexes and migrations |
 | [DEVELOPER_SETUP.md](DEVELOPER_SETUP.md) | run the project, run the tests, add templates or industries |
 | [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) | deploy to Kubernetes with Helm, operate it, back it up |
 | [requirements/](requirements/) | read the authoritative product and architecture requirements (01–20) |

@@ -32,3 +32,5 @@ class AuditAction(StrEnum):
     SUBSCRIPTION_CHANGED = "subscription.changed"
     CAMPAIGN_CREATED = "outreach.campaign_created"
     CAMPAIGN_DISPATCHED = "outreach.campaign_dispatched"
+    SUPPRESSION_ADDED = "outreach.suppression_added"
+    SUPPRESSION_REMOVED = "outreach.suppression_removed"
