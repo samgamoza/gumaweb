@@ -1,18 +1,24 @@
-"""Sales CRM: Guma OS's own prospect pipeline (docs/SALES_CRM_PLAN.md). A prospect is a business (1:1)."""
+"""Outbound engine: Guma OS's own prospect pipeline (docs/OUTBOUND_ENGINE_PLAN.md). A prospect is a business (1:1)."""
 
 from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Index, Integer, String, Text, func
+from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Index, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin, enum_type
 from app.domains.sales import ActivitySource, ActivityType, ProspectStage
 from app.models.business import Business
 
+
+class EnrollmentStatus(StrEnum):
+    ACTIVE = "active"
+    COMPLETED = "completed"  # every step fired or was skipped, or the playbook's time ran out
+    STOPPED = "stopped"  # the prospect converted or closed
 
 class Prospect(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "prospects"
@@ -64,3 +70,33 @@ class ProspectTask(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     assignee_user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     done_at: Mapped[datetime | None]
     created_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+
+class Playbook(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """A behaviour-driven follow-up sequence (rules: `domains/sales/playbooks.py`)."""
+
+    __tablename__ = "playbooks"
+    __table_args__ = (CheckConstraint("max_days >= 1 AND max_days <= 180", name="max_days_range"),)
+
+    name: Mapped[str] = mapped_column(String(200), unique=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    steps: Mapped[list[Any]] = mapped_column(default=list)
+    max_days: Mapped[int] = mapped_column(Integer, default=21)
+    # Emails are sent as outreach messages of this campaign, so tracking, unsubscribe and stats work unchanged.
+    campaign_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("outreach_campaigns.id", ondelete="SET NULL"))
+
+
+class PlaybookEnrollment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "playbook_enrollments"
+    __table_args__ = (
+        UniqueConstraint("playbook_id", "prospect_id"),
+        Index("ix_playbook_enrollments_status_playbook_id", "status", "playbook_id"),
+    )
+
+    playbook_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("playbooks.id", ondelete="CASCADE"))
+    prospect_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("prospects.id", ondelete="CASCADE"), index=True)
+    status: Mapped[EnrollmentStatus] = mapped_column(enum_type(EnrollmentStatus), default=EnrollmentStatus.ACTIVE)
+    enrolled_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    steps_done: Mapped[dict[str, Any]] = mapped_column(default=dict)  # step key -> {"status", "at", ...}
+    stop_reason: Mapped[str | None] = mapped_column(String(64))
+    finished_at: Mapped[datetime | None]

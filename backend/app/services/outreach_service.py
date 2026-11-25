@@ -136,26 +136,59 @@ class OutreachService:
                 message.status = MessageStatus.SKIPPED
                 skipped += 1
                 continue
-            try:
-                pixel = self._api(f"/public/outreach/open/{message.tracking_token}.gif")
-                providers.email.send(EmailMessage(
-                    to=message.recipient, subject=message.subject or "", text=message.body,
-                    html=f"<div style=\"white-space:pre-wrap;font-family:sans-serif\">{html.escape(message.body)}"
-                         f"</div><img src=\"{pixel}\" width=\"1\" height=\"1\" alt=\"\">",
-                ))
-            except Exception as exc:
-                message.status = MessageStatus.FAILED
-                message.error = str(exc)[:1000]
+            if self._deliver(message, now):
+                sent += 1
+            else:
                 failed += 1
-                continue
-            message.status = MessageStatus.SENT
-            message.sent_at = now
-            self._event(message, OutreachEventType.EMAIL_SENT)
-            record_event(self.db, EventType.OUTREACH_SENT, "outreach_message", message.id)
-            sent += 1
         self._complete_finished_campaigns()
         self.db.commit()
         return DispatchResult(sent=sent, skipped=skipped, failed=failed)
+
+    def _deliver(self, message: OutreachMessage, now: datetime) -> bool:
+        """Send one email with its open pixel; record it. Returns False (message marked failed) on error."""
+        try:
+            pixel = self._api(f"/public/outreach/open/{message.tracking_token}.gif")
+            providers.email.send(EmailMessage(
+                to=message.recipient, subject=message.subject or "", text=message.body,
+                html=f"<div style=\"white-space:pre-wrap;font-family:sans-serif\">{html.escape(message.body)}"
+                     f"</div><img src=\"{pixel}\" width=\"1\" height=\"1\" alt=\"\">",
+            ))
+        except Exception as exc:
+            message.status = MessageStatus.FAILED
+            message.error = str(exc)[:1000]
+            return False
+        message.status = MessageStatus.SENT
+        message.sent_at = now
+        self._event(message, OutreachEventType.EMAIL_SENT)
+        record_event(self.db, EventType.OUTREACH_SENT, "outreach_message", message.id)
+        return True
+
+    def send_now(self, campaign: OutreachCampaign, business: Business, website: Website, *, step: int,
+                 subject: str, body: str, now: datetime | None = None) -> OutreachMessage | None:
+        """Send one email immediately (outbound engine playbooks). Doesn't commit.
+
+        Returns None when there is no address or it is suppressed (checked again here, at send time); otherwise
+        the message, whose status says whether delivery worked."""
+        if not business.email or self.suppressions.is_suppressed(business.email) or website.is_claimed:
+            return None
+        now = now or datetime.now(UTC)
+        token = secrets.token_urlsafe(24)
+        variables = {
+            "business_name": business.name,
+            "city": business.city or "your area",
+            "website_url": self._api(f"/public/outreach/click/{token}"),
+            "claim_url": self._api(f"/public/outreach/click/{token}"),  # click-tracked; lands on the claim page
+            "unsubscribe_url": self._api(f"/public/outreach/unsubscribe/{token}"),
+        }
+        rendered_subject, rendered_body = render_message(subject, body, variables)
+        message = OutreachMessage(campaign_id=campaign.id, business_id=business.id, website_id=website.id,
+                                  channel=OutreachChannel.EMAIL, step=step, recipient=business.email,
+                                  subject=rendered_subject, body=rendered_body, tracking_token=token,
+                                  status=MessageStatus.SCHEDULED, scheduled_at=now)
+        self.db.add(message)
+        self.db.flush()
+        self._deliver(message, now)
+        return message
 
     def _complete_finished_campaigns(self) -> None:
         pending = select(OutreachMessage.campaign_id).where(OutreachMessage.status == MessageStatus.SCHEDULED)

@@ -115,8 +115,13 @@ class Settings(BaseSettings):
     dialer_provider: Literal["none"] = "none"  # "gumadial" is added together with its adapter
 
     # --- Outbound engine (docs/OUTBOUND_ENGINE_PLAN.md) ---------------------
-    auto_compile_enabled: bool = False  # generate + publish sites for qualifying discovered businesses, unattended
-    auto_compile_daily_limit: int = Field(default=50, ge=0)  # new auto sites per day (Philippine time)
+    auto_compile_enabled: bool = False  # build private draft sites for qualifying discovered businesses, unattended
+    auto_compile_daily_limit: int = Field(default=50, ge=0)  # new auto drafts per day (Philippine time)
+    outbound_engine_enabled: bool = False  # run playbooks: enroll ready prospects and send follow-ups unattended
+    outbound_daily_enrollment_limit: int = Field(default=100, ge=0)  # new playbook enrollments per day
+    outbound_max_touches_per_week: int = Field(default=3, ge=1, le=14)  # emails/SMS per prospect, all channels
+    outbound_quiet_hours_start: int = Field(default=20, ge=0, le=23)  # Philippine time; no sends from ...
+    outbound_quiet_hours_end: int = Field(default=8, ge=0, le=23)  # ... until this hour
 
     # --- AI content (Phase 2; local, OpenAI-compatible: vLLM / Ollama / llama.cpp) ---
     ai_enabled: bool = False

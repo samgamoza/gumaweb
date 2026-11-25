@@ -138,6 +138,7 @@ python -m app.cli suppress add shop.ph --domain    # a whole domain (subdomains 
 python -m app.cli suppress check owner@shop.ph     # list | remove work the same way
 python -m app.cli backfill-prospects               # build the outbound pipeline from history (once after upgrading)
 python -m app.cli rescore-prospects                # refresh outbound priority scores (nightly; engagement decays)
+python -m app.cli outbound-tick                    # one outbound engine pass now (enroll + due follow-ups)
 ```
 
 ### Live discovery and enrichment

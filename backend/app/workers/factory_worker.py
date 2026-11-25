@@ -135,6 +135,12 @@ def _scrub_suppression(db: Session, settings: Settings, payload: dict[str, Any])
     return run_scrub_job(db, settings, payload)
 
 
+def _run_outbound(db: Session, settings: Settings, payload: dict[str, Any]) -> dict[str, Any]:
+    from app.services.outbound_engine import run_outbound_job
+
+    return run_outbound_job(db, settings, payload)
+
+
 HANDLERS: dict[JobKind, Handler] = {
     JobKind.GENERATE_WEBSITE: _generate,
     JobKind.REGENERATE_WEBSITE: _regenerate,
@@ -148,6 +154,7 @@ HANDLERS: dict[JobKind, Handler] = {
     JobKind.ENRICH_BUSINESS: _enrich,
     JobKind.RUN_CAMPAIGN: _run_campaign,
     JobKind.SCRUB_SUPPRESSION: _scrub_suppression,
+    JobKind.RUN_OUTBOUND: _run_outbound,
 }
 
 
@@ -228,6 +235,8 @@ class FactoryWorker:
                 # Hourly custom-domain re-verification, as a queued job (retries, visible in admin).
                 hour = datetime.now(UTC).strftime("%Y%m%d%H")
                 JobQueue(db).enqueue(JobKind.CHECK_DOMAINS, {}, dedupe_key=f"check_domains:{hour}", priority=150)
+                if self.settings.outbound_engine_enabled:  # one playbook pass at a time (single flight)
+                    JobQueue(db).enqueue(JobKind.RUN_OUTBOUND, {}, dedupe_key="outbound", priority=120)
                 db.commit()
                 return stats
         except Exception:
