@@ -238,11 +238,17 @@ where noted.
 - Follow-up: website-scrape tier falls back to `PageRunner` when a plain fetch returns an
   empty/JS-only page (guma_os §12 item 11).
 
-### Step 8 — retire guma_os
+### Step 8 — retire guma_os — **done**
 
 - Port `AGENT_HANDOFF.md` §10 "Gotchas & lessons" into `docs/DEVELOPER_SETUP.md` (Redis in
   unprivileged LXC, Google quota, `$!` in passwords, Overpass etiquette).
 - Archive `samgamoza/guma-os` on GitHub (read-only). Do not delete.
+
+As done: `DEVELOPER_SETUP.md` gained a "Live discovery and enrichment" section, the `suppress` CLI, and
+troubleshooting entries (Google 429 quota, OSM city names, Overpass timeouts, `$!` in passwords, Redis and
+`sudo` in unprivileged LXC, Proxmox console paste, PowerShell `NativeCommandError`). guma_os-only notes (its
+Node scripts, husky hook, preview MCP root) were left behind. Before archiving, guma_os `main` was
+fast-forwarded to `feat/live-full-cycle` (dde193a) so the archived repo opens on its final state.
 
 ## 5. Order, size, tests
 
