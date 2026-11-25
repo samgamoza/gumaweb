@@ -15,6 +15,8 @@ class JobKind(StrEnum):
     SUMMARIZE_CALL = "summarize_call"  # Phase 4
     GENERATE_PRESENCE = "generate_presence"  # Phase 5
     CHECK_DOMAINS = "check_domains"  # Phase 5
+    DISCOVER_BUSINESSES = "discover_businesses"  # Guma OS port step 3
+    ENRICH_BUSINESS = "enrich_business"  # Guma OS port step 4
 
 
 class JobStatus(StrEnum):

@@ -9,19 +9,28 @@ from app.api.deps import AppSettings, DbSession, Pagination, Staff, StaffReader,
 from app.core.exceptions import ValidationFailedError
 from app.domains.business_discovery.enums import DiscoverySource
 from app.domains.business_discovery.sources import CsvSource, JsonSource
-from app.models import Business, BusinessProfile, DiscoveryRun
+from app.models import Business, BusinessContact, BusinessProfile, DiscoveryRun, FactoryJob
 from app.repositories.repositories import BusinessRepository, DiscoveryRunRepository
 from app.schemas.business import (
+    BusinessContactRead,
     BusinessCreate,
     BusinessFilters,
     BusinessProfileRead,
     BusinessProfileUpdate,
     BusinessRead,
     BusinessUpdate,
+    DiscoverRequest,
     DiscoveryRunRead,
+    DiscoverySourceRead,
+    EnrichmentTierRead,
+    EnrichRequest,
 )
 from app.schemas.common import Page
+from app.schemas.website import JobRead
 from app.services.business_service import BusinessService, ProfileService
+from app.services.contact_service import ContactService
+from app.services.discovery_service import DiscoveryService
+from app.services.enrichment_service import EnrichmentService
 
 router = APIRouter(prefix="/businesses", tags=["Businesses"])
 
@@ -60,6 +69,27 @@ async def import_businesses(request: Request, user: Staff, db: DbSession, settin
 @router.get("/discovery-runs", response_model=list[DiscoveryRunRead])
 def discovery_runs(_: StaffReader, db: DbSession) -> list[DiscoveryRun]:
     return list(DiscoveryRunRepository(db).recent())
+
+
+@router.get("/discovery-sources", response_model=list[DiscoverySourceRead],
+            summary="Live discovery sources and whether each is configured")
+def discovery_sources(_: StaffReader, db: DbSession, settings: AppSettings) -> list[DiscoverySourceRead]:
+    return [DiscoverySourceRead(**{**s.__dict__, "category": s.category.value})
+            for s in DiscoveryService(db, settings).sources()]
+
+
+@router.get("/enrichment-tiers", response_model=list[EnrichmentTierRead],
+            summary="Contact-enrichment tiers and whether each is enabled")
+def enrichment_tiers(_: StaffReader, db: DbSession, settings: AppSettings) -> list[EnrichmentTierRead]:
+    return [EnrichmentTierRead(**t.__dict__) for t in EnrichmentService(db, settings).tiers()]
+
+
+@router.post("/discover", response_model=JobRead, status_code=status.HTTP_202_ACCEPTED,
+             summary="Queue a live discovery run (OSM, Google Places...); results land as a discovery run")
+def discover(body: DiscoverRequest, request: Request, user: Staff, db: DbSession,
+             settings: AppSettings) -> FactoryJob:
+    return DiscoveryService(db, settings).enqueue(body.source, body.model_dump(exclude={"source"}),
+                                                  actor_for(request, user))
 
 
 @router.get("/{business_id}", response_model=BusinessRead)
@@ -112,3 +142,18 @@ def update_profile(business_id: uuid.UUID, body: BusinessProfileUpdate, _: Staff
                    settings: AppSettings) -> BusinessProfile:
     business = BusinessRepository(db).get_or_404(business_id)
     return ProfileService(db, settings).update(business, body)
+
+
+@router.get("/{business_id}/contacts", response_model=list[BusinessContactRead],
+            summary="Every contact learned about this business, with provenance")
+def business_contacts(business_id: uuid.UUID, _: StaffReader, db: DbSession) -> list[BusinessContact]:
+    BusinessRepository(db).get_or_404(business_id)
+    return ContactService(db).contacts_for(business_id)
+
+
+@router.post("/{business_id}/enrich", response_model=JobRead, status_code=status.HTTP_202_ACCEPTED,
+             summary="Queue contact enrichment (website scrape, then enabled opt-in tiers)")
+def enrich_business(business_id: uuid.UUID, request: Request, user: Staff, db: DbSession, settings: AppSettings,
+                    body: EnrichRequest | None = None) -> FactoryJob:
+    business = BusinessRepository(db).get_or_404(business_id)
+    return EnrichmentService(db, settings).enqueue(business, actor_for(request, user), body.tiers if body else None)

@@ -24,6 +24,8 @@ class BusinessBase(BaseModel):
     website: str | None = Field(None, max_length=500)
     facebook: str | None = Field(None, max_length=500)
     google_business_url: str | None = Field(None, max_length=500)
+    latitude: float | None = Field(None, ge=-90, le=90)
+    longitude: float | None = Field(None, ge=-180, le=180)
 
 
 class BusinessCreate(BusinessBase):
@@ -114,3 +116,51 @@ class DiscoveryRunRead(ORMModel):
     errors: list[Any]
     started_at: datetime
     finished_at: datetime | None
+
+
+class DiscoverySourceRead(BaseModel):
+    id: str
+    name: str
+    category: str
+    discovery_source: DiscoverySource
+    requires_key: bool
+    configured: bool
+    billed: bool
+    note: str | None = None
+
+
+class DiscoverRequest(BaseModel):
+    source: str = Field(description="a source id from GET /businesses/discovery-sources, e.g. osm")
+    category: str | None = Field(None, max_length=100, description='e.g. "dental clinic"')
+    city: str | None = Field(None, max_length=120, description='e.g. "Cebu City"')
+    query: str | None = Field(None, max_length=200, description="free text; overrides category/city where supported")
+    limit: int = Field(30, ge=1, le=500)
+
+
+class BusinessContactRead(ORMModel):
+    id: uuid.UUID
+    kind: str
+    value: str
+    source: str
+    source_ref: str | None
+    value_type: str
+    verification_status: str
+    confidence: float
+    purpose: str
+    policy_decision: str
+    reason_code: str | None
+    acquired_at: datetime
+    retention_until: datetime | None
+    discovery_run_id: uuid.UUID | None
+
+
+class EnrichmentTierRead(BaseModel):
+    id: str
+    name: str
+    billed: bool
+    enabled: bool
+    note: str
+
+
+class EnrichRequest(BaseModel):
+    tiers: list[str] | None = Field(None, description="narrow to these enabled tier ids; omit for all enabled tiers")

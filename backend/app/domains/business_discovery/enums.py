@@ -28,3 +28,5 @@ class DiscoverySource(StrEnum):
     GOOGLE_BUSINESS = "google_business"
     FACEBOOK = "facebook"
     SEC = "sec"
+    OSM = "osm"  # OpenStreetMap via Overpass
+    FIXTURE = "fixture"  # fictional test listings; never in production

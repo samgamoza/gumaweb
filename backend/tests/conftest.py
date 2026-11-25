@@ -70,6 +70,25 @@ def _schema() -> Iterator[None]:
     Base.metadata.drop_all(engine)
 
 
+@pytest.fixture(autouse=True)
+def _offline_enrichment(monkeypatch) -> None:
+    """Enrichment never touches the network in tests: websites look unreachable, APIs answer 404.
+
+    Tests that exercise enrichment replace `website_fetcher` / `http_client_factory` themselves.
+    """
+    import httpx
+
+    from app.core.net import UnsafeUrlError
+    from app.services import enrichment_service
+
+    def unreachable(url: str):
+        raise UnsafeUrlError(f"offline test: {url}")
+
+    monkeypatch.setattr(enrichment_service, "website_fetcher", unreachable)
+    monkeypatch.setattr(enrichment_service, "http_client_factory",
+                        lambda: httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(404))))
+
+
 @pytest.fixture
 def settings():
     return get_settings()

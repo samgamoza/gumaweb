@@ -94,6 +94,22 @@ class Settings(BaseSettings):
     claim_rate_limit_per_hour: int = 5
     default_country_code: str = "63"  # Philippines
 
+    # --- Live discovery (Guma OS port step 3) ------------------------------
+    google_maps_api_key: str | None = None  # Places API (New), billing-enabled project
+    overpass_endpoint: str = "https://overpass-api.de/api/interpreter"
+    discovery_user_agent: str = "GumaWebBot/1.0 (+https://gumaweb.io/bot)"
+    discovery_allow_fixture: bool | None = None  # default: on outside production
+
+    # --- Contact enrichment (Guma OS port step 4) --------------------------
+    enrich_after_discovery: bool = True  # queue enrichment for each newly discovered business
+    enrich_allow_rdap: bool = False  # free, but tells a registry which domains we look at: opt in
+    rdap_base_url: str = "https://rdap.org/domain"
+    hunter_api_key: str | None = None
+    enrich_allow_hunter: bool = False  # a key alone never turns on a paid tier
+    enrich_paid_min_score: int = 80  # paid tiers only for businesses scoring at least this
+    hunter_min_confidence: int = 50
+    hunter_cost_micros: int = 0  # your plan's price per request, in millionths (e.g. 49000 = 0.049)
+
     # --- AI content (Phase 2; local, OpenAI-compatible: vLLM / Ollama / llama.cpp) ---
     ai_enabled: bool = False
     llm_base_url: str = "http://localhost:8001/v1"
