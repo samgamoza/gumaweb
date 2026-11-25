@@ -9,6 +9,7 @@
     python -m app.cli dispatch-outreach
     python -m app.cli suppress add|remove|list [VALUE] [--domain] [--reason R] [--note TEXT]
     python -m app.cli backfill-prospects                   # build the sales CRM from history (idempotent)
+    python -m app.cli rescore-prospects                    # nightly: outbound priority decays with time
 """
 
 from __future__ import annotations
@@ -121,6 +122,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("dispatch-outreach")
     sub.add_parser("rescore-leads", help="backfill/refresh lead scores without firing alerts (nightly)")
     sub.add_parser("backfill-prospects", help="build sales CRM prospects and timelines from history (idempotent)")
+    sub.add_parser("rescore-prospects", help="refresh outbound priority scores; engagement decays (nightly)")
     mail = sub.add_parser("mail-bootstrap", help="first-run setup of a fresh Stalwart mail server")
     mail.add_argument("--hostname", required=True, help="the mail server's public name, e.g. mail.gumaweb.io")
     mail.add_argument("--domain", required=True, help="the platform's own mail domain, e.g. gumaweb.io")
@@ -178,6 +180,8 @@ def main(argv: list[str] | None = None) -> int:
                 result = cmd_suppress(db, args)
             elif args.command == "backfill-prospects":
                 result = vars(ProspectService(db).backfill())
+            elif args.command == "rescore-prospects":
+                result = {"rescored": ProspectService(db).rescore_all()}
             elif args.command == "create-admin":
                 user = AuthService(db).ensure_admin(args.email, args.password)
                 result = {"admin": user.email}

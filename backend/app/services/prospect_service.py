@@ -14,18 +14,20 @@ from typing import Any
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app.domains.business_discovery.contacts import ContactKind
+from app.domains.business_discovery.contacts import ContactKind, PolicyDecision, ValueType, VerificationStatus
 from app.domains.claims.enums import ClaimStatus
 from app.domains.outreach.enums import OutreachEventType
 from app.domains.sales import (
     AUTO_STAGE,
     BLOCKS_ALL_CHANNELS,
+    CONVERTED_STAGES,
     ENGAGEMENT,
     ActivitySource,
     ActivityType,
     ProspectStage,
     auto_advance,
 )
+from app.domains.sales.priority import ENGAGEMENT_POINTS, ChannelQuality, PriorityInput, score_priority
 from app.models import (
     Business,
     BusinessContact,
@@ -40,6 +42,7 @@ from app.models import (
     Subscription,
     Website,
 )
+from app.services.suppression_service import SuppressionService
 
 OUTREACH_ACTIVITY = {
     OutreachEventType.EMAIL_SENT: (ActivityType.EMAIL_SENT, "sent"),
@@ -53,6 +56,16 @@ def _utc(value: datetime | None) -> datetime:
     if value is None:
         return datetime.now(UTC)
     return value if value.tzinfo else value.replace(tzinfo=UTC)  # SQLite hands back naive UTC
+
+
+def _quality(contact: BusinessContact) -> ChannelQuality:
+    if contact.value_type is ValueType.USER_SUPPLIED or contact.verification_status is VerificationStatus.VERIFIED:
+        return ChannelQuality.CONFIRMED
+    if contact.value_type is ValueType.OBSERVED:
+        return ChannelQuality.OBSERVED
+    if contact.value_type is ValueType.DERIVED:
+        return ChannelQuality.LISTED
+    return ChannelQuality.GUESSED
 
 
 def outreach_external_id(message_id: Any, verb: str) -> str:
@@ -107,7 +120,78 @@ class ProspectService:
                                     data=data, occurred_at=when, external_id=external_id)
         self.db.add(activity)
         self.db.flush()
+        self._rescore(prospect)
         return activity
+
+    # --- Outbound priority (A1) -----------------------------------------------------------------
+    def rescore(self, business_id: uuid.UUID) -> Prospect | None:
+        """Recompute a prospect's priority score and usable channels (after enrichment, suppression, decay)."""
+        prospect = self.for_business(business_id)
+        if prospect is not None:
+            self._rescore(prospect)
+        return prospect
+
+    def rescore_all(self) -> int:
+        """Nightly: engagement decays with time, so scores drift even without new activity."""
+        count = 0
+        for prospect in self.db.scalars(select(Prospect)).all():
+            self._rescore(prospect)
+            count += 1
+        self.db.commit()
+        return count
+
+    def _rescore(self, prospect: Prospect) -> None:
+        business = self.db.get(Business, prospect.business_id)
+        if business is None:
+            return
+        email, phone = self.channel_quality(business)
+        last = dict(self.db.execute(
+            select(ProspectActivity.type, func.max(ProspectActivity.occurred_at))
+            .where(ProspectActivity.prospect_id == prospect.id,
+                   ProspectActivity.type.in_([ActivityType(k) for k in ENGAGEMENT_POINTS]))
+            .group_by(ProspectActivity.type)
+        ).all())
+        now = datetime.now(UTC)
+        result = score_priority(PriorityInput(
+            opportunity_score=business.score, email=email, phone=phone, now=now,
+            last_engagement={t.value: _utc(w) for t, w in last.items()}))
+        prospect.score, prospect.score_reasons, prospect.channels = result.score, result.reasons, result.channels
+        prospect.reachable = bool(result.channels)
+        prospect.scored_at = now
+        self.db.flush()
+
+    def channel_quality(self, business: Business) -> tuple[ChannelQuality, ChannelQuality]:
+        """The best usable email and phone for a business, judged by provenance. Blocked, invalid and
+        suppressed contacts don't count; a primary with no provenance record counts as LISTED."""
+        best = {ContactKind.EMAIL: ChannelQuality.NONE, ContactKind.PHONE: ChannelQuality.NONE}
+        known: set[tuple[ContactKind, str]] = set()
+        for contact in self.db.scalars(select(BusinessContact).where(
+                BusinessContact.business_id == business.id,
+                BusinessContact.kind.in_([ContactKind.EMAIL, ContactKind.PHONE]))):
+            known.add((contact.kind, contact.value))
+            if (contact.policy_decision is not PolicyDecision.ALLOW
+                    or contact.verification_status is VerificationStatus.INVALID):
+                continue
+            best[contact.kind] = max(best[contact.kind], _quality(contact))
+        suppressions = SuppressionService(self.db)
+        if business.email and (ContactKind.EMAIL, business.email) not in known \
+                and not suppressions.is_suppressed(business.email):
+            best[ContactKind.EMAIL] = max(best[ContactKind.EMAIL], ChannelQuality.LISTED)
+        if business.phone and (ContactKind.PHONE, business.phone) not in known:
+            best[ContactKind.PHONE] = max(best[ContactKind.PHONE], ChannelQuality.LISTED)
+        return best[ContactKind.EMAIL], best[ContactKind.PHONE]
+
+    def ready_query(self, now: datetime | None = None):
+        """Prospects the outbound engine may work now, best first (channel opt-outs are checked at send time)."""
+        now = now or datetime.now(UTC)
+        open_stages = [s for s in ProspectStage if s not in CONVERTED_STAGES and s is not ProspectStage.DO_NOT_CONTACT
+                       and s is not ProspectStage.LOST]
+        reopened_lost = (Prospect.stage == ProspectStage.LOST) & Prospect.cooldown_until.is_not(None) \
+            & (Prospect.cooldown_until <= now)
+        open_now = Prospect.stage.in_(open_stages) & (
+            Prospect.cooldown_until.is_(None) | (Prospect.cooldown_until <= now))
+        return (select(Prospect).where(or_(open_now, reopened_lost), Prospect.reachable.is_(True))
+                .order_by(Prospect.score.desc().nulls_last(), Prospect.created_at))
 
     # --- Hooks called from other services ------------------------------------------------------
     def record_outreach(self, event: OutreachEvent, message: OutreachMessage) -> None:

@@ -39,6 +39,7 @@ from app.domains.business_discovery.providers.registry import (
 from app.domains.business_discovery.sources import RawBusinessRecord
 from app.domains.website_factory.jobs import JobKind
 from app.models import Business, DiscoveryRun, FactoryJob, User
+from app.services import lead_compiler
 from app.services.business_service import BusinessService
 from app.services.contact_service import ContactService
 from app.services.enrichment_service import EnrichmentService
@@ -143,8 +144,11 @@ class DiscoveryService:
         tiers = None if enrichment_tiers is None else [t for t in enrichment_tiers if t in enabled]
 
         def record_provenance(business: Business, record: RawBusinessRecord) -> None:
-            if enrichment is not None and tiers != [] and enrichment.worth_enriching(business):
+            enriching = enrichment is not None and tiers != [] and enrichment.worth_enriching(business)
+            if enriching:
                 enrichment.enqueue(business, actor, tiers, commit=False)
+            else:  # fully known now; otherwise the enrichment job hands it to the lead compiler when done
+                lead_compiler.consider(self.db, self.settings, business)
             item = by_record.get(id(record))
             if item is None:
                 return

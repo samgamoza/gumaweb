@@ -136,6 +136,8 @@ python -m app.cli mail-bootstrap --hostname H --domain D  # first-run setup of a
 python -m app.cli suppress add owner@shop.ph       # do-not-contact; also queues a scrub of stored contacts
 python -m app.cli suppress add shop.ph --domain    # a whole domain (subdomains need their own entry)
 python -m app.cli suppress check owner@shop.ph     # list | remove work the same way
+python -m app.cli backfill-prospects               # build the outbound pipeline from history (once after upgrading)
+python -m app.cli rescore-prospects                # refresh outbound priority scores (nightly; engagement decays)
 ```
 
 ### Live discovery and enrichment

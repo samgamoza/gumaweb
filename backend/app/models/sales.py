@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import CheckConstraint, ForeignKey, Index, Integer, String, Text, func
+from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Index, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin, enum_type
@@ -24,8 +24,11 @@ class Prospect(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id", ondelete="CASCADE"), unique=True)
     stage: Mapped[ProspectStage] = mapped_column(enum_type(ProspectStage), default=ProspectStage.NEW)
     owner_user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
-    score: Mapped[int | None] = mapped_column(Integer)
+    score: Mapped[int | None] = mapped_column(Integer)  # outbound priority (domains/sales/priority.py)
     score_reasons: Mapped[list[Any]] = mapped_column(default=list)
+    channels: Mapped[list[Any]] = mapped_column(default=list)  # usable channels, e.g. ["email", "phone"]
+    reachable: Mapped[bool] = mapped_column(Boolean, default=False)  # bool(channels), indexable
+    scored_at: Mapped[datetime | None]
     last_touch_at: Mapped[datetime | None]
     stage_changed_at: Mapped[datetime] = mapped_column(server_default=func.now())
     lost_reason: Mapped[str | None] = mapped_column(Text)

@@ -14,6 +14,7 @@ from app.api.v1.endpoints import (
     engagement,
     health,
     outreach,
+    pipeline,
     presence,
     public,
     templates,
@@ -28,5 +29,6 @@ api_router.include_router(automation.router)
 api_router.include_router(automation.gateway)
 api_router.include_router(presence.router)
 api_router.include_router(discovery.router)
+api_router.include_router(pipeline.router)
 api_router.include_router(domains.router)
 api_router.include_router(domains.edge)
