@@ -19,6 +19,7 @@ from app.domains.business_discovery.enums import BusinessStatus
 from app.domains.business_discovery.lifecycle import advance
 from app.domains.publishing.enums import DeploymentStatus
 from app.domains.publishing.renderer import RenderContext
+from app.domains.sales import ActivityType
 from app.domains.website_factory.enums import WebsiteStatus
 from app.domains.website_factory.jobs import JobKind
 from app.models import Deployment, Website
@@ -26,6 +27,7 @@ from app.repositories.repositories import WebsiteRepository
 from app.services.asset_service import AssetService, extension_for
 from app.services.domain_service import DomainService
 from app.services.job_queue import JobQueue
+from app.services.prospect_service import ProspectService
 from app.services.providers import providers
 from app.services.support import Actor, EventType, audit, record_event
 
@@ -120,6 +122,9 @@ class PublishingService:
         website.business.status = advance(website.business.status, BusinessStatus.PUBLISHED)
         record_event(self.db, EventType.WEBSITE_PUBLISHED, "website", website.id,
                      {"version": version, "url": website.url})
+        # The sales CRM pipeline starts at the first publish (later republishes are replays: no-ops).
+        ProspectService(self.db).record(website.business_id, ActivityType.SITE_PUBLISHED, occurred_at=now,
+                                        external_id=f"website:{website.id}:published", data={"url": website.url})
         # Phase 5: the presence kit is rebuilt from the published facts (copy only; images render lazily).
         JobQueue(self.db).enqueue(JobKind.GENERATE_PRESENCE, {"business_id": str(website.business_id)},
                                   dedupe_key=f"presence:{website.business_id}", priority=120)

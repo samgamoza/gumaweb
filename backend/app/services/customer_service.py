@@ -14,6 +14,7 @@ from app.domains.audit.actions import AuditAction
 from app.domains.billing.enums import PlanCode, SubscriptionStatus
 from app.domains.billing.plans import ManualPaymentProvider
 from app.domains.business_discovery import normalization as norm
+from app.domains.sales import ActivityType
 from app.domains.website_factory.enums import ContentSource, WebsiteStatus
 from app.models import Customer, Lead, Plan, SiteEvent, Subscription, User, Website
 from app.repositories.repositories import (
@@ -32,6 +33,7 @@ from app.schemas.customer import (
     SeoSummary,
 )
 from app.services.entitlements import refresh_site
+from app.services.prospect_service import ProspectService
 from app.services.publishing_service import PublishingService
 from app.services.support import Actor, EventType, audit, record_event
 from app.workflows.website_generation import WebsiteGenerationWorkflow
@@ -201,6 +203,14 @@ class BillingService:
         record_event(self.db, EventType.CUSTOMER_UPGRADED, "customer", customer.id,
                      {"from": previous.value, "to": target.value})
         self.db.flush()
+        previous_plan = self.plans.get(previous)
+        was_paid = bool(previous_plan and previous_plan.price_monthly_cents)
+        if plan.price_monthly_cents or was_paid:  # the sales CRM tracks moves into and out of paid plans
+            ProspectService(self.db).record(
+                customer.business_id,
+                ActivityType.SUBSCRIBED if plan.price_monthly_cents else ActivityType.CHURNED,
+                external_id=f"subscription:{subscription.id}", occurred_at=now,
+                data={"plan": target.value, "from": previous.value})
         # Plan changes add/remove booking & chat modules on the live site.
         refresh_site(self.db, self.settings, customer.business_id, actor)
         # Phase 5: a downgrade stops custom-domain serving and suspends business email.

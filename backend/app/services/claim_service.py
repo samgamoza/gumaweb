@@ -30,6 +30,7 @@ from app.domains.claims.enums import ACTIVE_CLAIM_STATUSES, ClaimStatus, Verific
 from app.domains.claims.risk import RiskInput, assess_claim_risk
 from app.domains.customers.enums import UserRole
 from app.domains.outreach.enums import MessageStatus, OutreachEventType
+from app.domains.sales import ActivityType
 from app.domains.website_factory.enums import WebsiteStatus
 from app.models import Claim, Customer, OutreachEvent, OutreachMessage, Subscription, User, Website
 from app.repositories.repositories import (
@@ -42,6 +43,7 @@ from app.repositories.repositories import (
 from app.schemas.claim import ClaimStart, ClaimVerify
 from app.services.auth_service import issue_tokens
 from app.services.notifications import EmailMessage
+from app.services.prospect_service import ProspectService
 from app.services.providers import providers
 from app.services.publishing_service import PublishingService
 from app.services.support import Actor, EventType, audit, record_event
@@ -125,6 +127,8 @@ class ClaimService:
             )
 
         self._attribute(business.id, OutreachEventType.CLAIM_STARTED, data.ref)
+        ProspectService(self.db).record(business.id, ActivityType.CLAIM_STARTED,
+                                        external_id=f"claim:{claim.id}:started", data={"method": data.method.value})
         record_event(self.db, EventType.CLAIM_STARTED, "claim", claim.id, {"business_id": str(business.id)})
         audit(self.db, actor, AuditAction.CLAIM_STARTED, "claim", claim.id,
               {"business_id": str(business.id), "method": data.method.value, "risk": risk.score})
@@ -213,6 +217,8 @@ class ClaimService:
         claim.review_notes = notes
         claim.verification_token_hash = None
         record_event(self.db, EventType.CLAIM_REJECTED, "claim", claim.id)
+        ProspectService(self.db).record(claim.business_id, ActivityType.CLAIM_REJECTED,
+                                        external_id=f"claim:{claim.id}:rejected", data={"notes": notes})
         audit(self.db, actor, AuditAction.CLAIM_REJECTED, "claim", claim.id, {"notes": notes})
         self.db.commit()
         return claim
@@ -243,6 +249,9 @@ class ClaimService:
             .values(status=MessageStatus.SKIPPED, error="claimed")
         )
         self._attribute(business.id, OutreachEventType.CLAIM_COMPLETED, None)
+        ProspectService(self.db).record(business.id, ActivityType.CLAIM_APPROVED,
+                                        external_id=f"claim:{claim.id}:approved",
+                                        data={"claimant_name": claim.claimant_name})
         record_event(self.db, EventType.CLAIM_COMPLETED, "claim", claim.id,
                      {"business_id": str(business.id), "customer_id": str(customer.id)})
         audit(self.db, actor, AuditAction.CLAIM_APPROVED, "claim", claim.id, {"customer_id": str(customer.id)})

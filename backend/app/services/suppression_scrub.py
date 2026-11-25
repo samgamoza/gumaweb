@@ -30,6 +30,7 @@ from app.domains.business_discovery.contacts import ContactKind, PolicyDecision,
 from app.domains.outreach.enums import MessageStatus
 from app.domains.outreach.suppression import SuppressionKind, normalize_suppression
 from app.models import Business, BusinessContact, OutreachMessage, OutreachSuppression
+from app.services.prospect_service import ProspectService
 from app.services.support import SYSTEM, audit
 
 
@@ -41,6 +42,7 @@ class ScrubResult:
     contacts_blocked: int = 0
     messages_skipped: int = 0
     businesses_now_skipped_by_outreach: int = 0  # their primary email matches; kept, but never contacted
+    prospects_noted: int = 0  # sales CRM prospects that got a "suppressed" activity (closed if it blocks all)
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -57,9 +59,9 @@ def matches(column: Any, kind: SuppressionKind, value: str) -> ColumnElement[boo
 def scrub(db: Session, settings: Settings, kind: SuppressionKind, value: str) -> ScrubResult:
     value = normalize_suppression(kind, value)
     result = ScrubResult(kind=kind.value, value=value)
-    still_suppressed = db.scalar(select(OutreachSuppression.id).where(
+    entry = db.scalar(select(OutreachSuppression).where(
         OutreachSuppression.kind == kind, OutreachSuppression.value == value))
-    if still_suppressed is None:
+    if entry is None:
         result.skipped = "suppression_removed"
         return result
 
@@ -81,6 +83,7 @@ def scrub(db: Session, settings: Settings, kind: SuppressionKind, value: str) ->
 
     result.businesses_now_skipped_by_outreach = db.scalar(
         select(func.count()).select_from(Business).where(matches(Business.email, kind, value))) or 0
+    result.prospects_noted = len(ProspectService(db).record_suppression(entry))
 
     audit(db, SYSTEM, AuditAction.SUPPRESSION_SCRUBBED, "outreach_suppression", f"{kind.value}:{value}",
           {k: v for k, v in result.as_dict().items() if k not in ("kind", "value", "skipped")})
