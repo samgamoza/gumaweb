@@ -152,3 +152,15 @@ class BusinessContactRead(ORMModel):
     acquired_at: datetime
     retention_until: datetime | None
     discovery_run_id: uuid.UUID | None
+
+
+class EnrichmentTierRead(BaseModel):
+    id: str
+    name: str
+    billed: bool
+    enabled: bool
+    note: str
+
+
+class EnrichRequest(BaseModel):
+    tiers: list[str] | None = Field(None, description="narrow to these enabled tier ids; omit for all enabled tiers")

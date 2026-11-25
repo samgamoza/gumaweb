@@ -37,6 +37,8 @@ OpenAPI JSON: `/api/v1/openapi.json`.
 | GET | `/businesses/discovery-runs` | reader | Recent import and discovery runs (failed source calls appear as `failed` runs with the error) |
 | GET | `/businesses/discovery-sources` | reader | Live sources: `{id, name, category, discovery_source, requires_key, configured, billed, note}` |
 | POST | `/businesses/discover` | staff | `{source, category?, city?, query?, limit ≤ 500}` → `202` queued job (`discover_businesses`). `409 discovery_in_progress` if the same search is already queued or running; `422` for an unknown, unconfigured or disabled source |
+| GET | `/businesses/enrichment-tiers` | reader | `{id, name, billed, enabled, note}` for `website_scrape`, `rdap`, `hunter` |
+| POST | `/businesses/{id}/enrich` | staff | `{tiers?: [...]}` (can only narrow the enabled tiers) → `202` queued job (`enrich_business`); `409 enrichment_in_progress`; `422` unknown/disabled tier |
 | GET | `/businesses/{id}/contacts` | reader | Every contact learned about the business, with provenance (source, source_ref, value_type, confidence, policy decision) |
 | GET / PATCH | `/businesses/{id}` | reader / staff | Read / update (re-normalizes and re-scores) |
 | DELETE | `/businesses/{id}` | staff | Archive (soft delete) |
@@ -54,6 +56,21 @@ score pipeline as a CSV import; the job's `result` holds the `discovery_run_id`.
 * `fixture`: fictional listings (555 numbers, `.example` sites) for tests and demos. Off in production.
 
 A source error or quota refusal (429) is recorded as a failed run and is not retried automatically.
+
+**Contact enrichment.** Each newly discovered business with a real website (not a Facebook page) is queued
+for enrichment automatically (`ENRICH_AFTER_DISCOVERY`). Tiers run as a waterfall and stop at the first real
+email:
+
+1. `website_scrape` (free, always on): homepage, then `/contact`; mailto/tel links, plain-text addresses and
+   schema.org JSON-LD, fetched through the SSRF-hardened `safe_fetch`.
+2. `rdap` (free, opt-in `ENRICH_ALLOW_RDAP`): domain registration data. Results are stored as `predicted`
+   guesses and are never promoted or contacted.
+3. `hunter` (paid, needs `HUNTER_API_KEY` **and** `ENRICH_ALLOW_HUNTER=true`): only for businesses scoring at
+   least `ENRICH_PAID_MIN_SCORE` that have no email yet. Every request is written to `provider_usage`.
+
+A business whose website domain is suppressed is skipped before any tier runs. Found emails whose domain has
+neither MX nor A records are marked `invalid` and never promoted. The job `result` reports tiers run, counts,
+what was promoted, the detected tech stack and billed calls.
 
 CSV columns: `name` (or `business_name`), `industry, city, province, address, phone, email, website,
 facebook, google_business_url, description, source_ref, latitude, longitude` (or `business_id` for `source_ref`). Sample:

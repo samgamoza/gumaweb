@@ -64,6 +64,7 @@ erDiagram
 | Customers | `leads` | Contact-form submissions | `ix website_id`, `ix created_at` |
 | Billing | `plans` | Product ladder and feature entitlements (prices editable without deploy) | PK `code` |
 | Billing | `subscriptions` | Plan history per customer, provider reference | **partial unique `(customer_id) WHERE status='active'`** |
+| Platform | `provider_usage` | One row per billable call to a paid data API (Hunter.io): provider, operation, units, cost_micros, business | `ix (provider, created_at)` |
 | Outreach | `outreach_campaigns` | Sequence definition and target filter | |
 | Outreach | `outreach_messages` | Rendered message per business per step, tracking token | `uq (campaign_id, business_id, step)`, `uq tracking_token`, `ix (status, scheduled_at)` |
 | Outreach | `outreach_events` | sent / opened / clicked / visited / claim_started / claim_completed / unsubscribed | `ix (business_id, event_type)`, `ix occurred_at` |

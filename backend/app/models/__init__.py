@@ -22,7 +22,7 @@ from app.models.engagement import (
     ContactActivity,
     KnowledgeEntry,
 )
-from app.models.factory import AIGeneration, FactoryJob
+from app.models.factory import AIGeneration, FactoryJob, ProviderUsage
 from app.models.outreach import OutreachCampaign, OutreachEvent, OutreachMessage, OutreachSuppression
 from app.models.platform import AuditLog, DomainEvent, SiteEvent
 from app.models.presence import CustomDomain, Mailbox, MailDomain, PresenceKit
@@ -35,6 +35,7 @@ __all__ = [
     "MailDomain",
     "Mailbox",
     "PresenceKit",
+    "ProviderUsage",
     "AIGeneration",
     "ApiKey",
     "AutomationRule",

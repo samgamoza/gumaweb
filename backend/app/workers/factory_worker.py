@@ -112,6 +112,12 @@ def _discover(db: Session, settings: Settings, payload: dict[str, Any]) -> dict[
     return run_discovery_job(db, settings, payload)
 
 
+def _enrich(db: Session, settings: Settings, payload: dict[str, Any]) -> dict[str, Any]:
+    from app.services.enrichment_service import run_enrichment_job
+
+    return run_enrichment_job(db, settings, payload)
+
+
 HANDLERS: dict[JobKind, Handler] = {
     JobKind.GENERATE_WEBSITE: _generate,
     JobKind.REGENERATE_WEBSITE: _regenerate,
@@ -122,6 +128,7 @@ HANDLERS: dict[JobKind, Handler] = {
     JobKind.GENERATE_PRESENCE: _presence,
     JobKind.CHECK_DOMAINS: _check_domains,
     JobKind.DISCOVER_BUSINESSES: _discover,
+    JobKind.ENRICH_BUSINESS: _enrich,
 }
 
 

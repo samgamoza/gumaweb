@@ -1,11 +1,12 @@
-"""Factory-scale infrastructure tables: durable job queue and AI generation log/cache."""
+"""Factory-scale infrastructure tables: durable job queue, AI generation log/cache, paid-API usage ledger."""
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, Index, Integer, String, Text, func, text
+from sqlalchemy import BigInteger, Boolean, ForeignKey, Index, Integer, String, Text, func, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin, enum_type
@@ -60,3 +61,20 @@ class AIGeneration(UUIDPrimaryKeyMixin, Base):
     completion_tokens: Mapped[int] = mapped_column(Integer, default=0)
     latency_ms: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now(), index=True)
+
+
+class ProviderUsage(UUIDPrimaryKeyMixin, Base):
+    """Every billable call to a paid data API (e.g. Hunter.io), recorded whether or not it found anything.
+
+    `cost_micros` is millionths of the account currency, from the configured per-request price.
+    """
+
+    __tablename__ = "provider_usage"
+    __table_args__ = (Index("ix_provider_usage_provider_created_at", "provider", "created_at"),)
+
+    provider: Mapped[str] = mapped_column(String(64))
+    operation: Mapped[str] = mapped_column(String(64))
+    units: Mapped[int] = mapped_column(Integer, default=1)
+    cost_micros: Mapped[int] = mapped_column(BigInteger, default=0)
+    business_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("businesses.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

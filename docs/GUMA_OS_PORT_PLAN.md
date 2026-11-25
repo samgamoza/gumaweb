@@ -140,7 +140,23 @@ where noted.
   `scoring.py` (from `scoreLead`). Keep GumaWeb's weights authoritative; add with tests.
 - New `JobKind.DISCOVER` handled by the factory worker, so discovery never blocks an HTTP request.
 
-### Step 4 — contact enrichment waterfall
+### Step 4 — contact enrichment waterfall — **done**
+
+> Landed as `domains/enrichment/` (`extract.py`, `tiers.py`), `services/enrichment_service.py`,
+> `JobKind.ENRICH_BUSINESS`, the `provider_usage` ledger (migration `0008`), `GET /businesses/enrichment-tiers`
+> and `POST /businesses/{id}/enrich`. Discovery queues enrichment for new businesses with a real website.
+> Deviations and findings:
+> * **MX given a real job.** guma_os defined `domainHasMx` but never called it. Here an email whose domain has
+>   neither MX nor A records is marked `invalid` and never promoted (DNS trouble changes nothing).
+> * Facebook/social links are never scraped or looked up (`is_real_website`).
+> * HTML entities and percent-encoding are decoded (`orders&#64;shop.ph`); abuse/role desk addresses that RDAP
+>   returns are dropped as infrastructure.
+> * Each email keeps the exact page it came from (`source_ref`), not just the tier.
+> * Paid tiers skip businesses that already have an email; `tiers_run` lists only tiers that did work.
+> * Bounded in-process concurrency is replaced by one job per business: concurrency = worker count.
+> * Not stored yet: the detected tech stack (reported in the job result; no column for it).
+> * Live-checked: `/contact` fallback found a real address with the right `source_ref`; WordPress detected;
+>   RDAP on a redacted domain returned nothing, as guma_os observed.
 
 - **From:** `adapter-maps/src/enrichment.ts` (456), `domain-signals.ts` (77), `mx-lookup.ts` (38),
   `rdap.ts` (96), `hunter.ts` (82). **Tests: enrichment 55, domain-signals 12, mx 4, rdap 7, hunter 7.**

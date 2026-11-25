@@ -41,6 +41,7 @@ from app.domains.website_factory.jobs import JobKind
 from app.models import Business, DiscoveryRun, FactoryJob, User
 from app.services.business_service import BusinessService
 from app.services.contact_service import ContactService
+from app.services.enrichment_service import EnrichmentService
 from app.services.job_queue import JobQueue
 from app.services.support import SYSTEM, Actor
 
@@ -125,8 +126,11 @@ class DiscoveryService:
             records.append(record)
 
         contacts = ContactService(self.db)
+        enrichment = EnrichmentService(self.db, self.settings) if self.settings.enrich_after_discovery else None
 
         def record_provenance(business: Business, record: RawBusinessRecord) -> None:
+            if enrichment is not None and enrichment.worth_enriching(business):
+                enrichment.enqueue(business, actor, commit=False)
             item = by_record.get(id(record))
             if item is None:
                 return

@@ -22,12 +22,15 @@ from app.schemas.business import (
     DiscoverRequest,
     DiscoveryRunRead,
     DiscoverySourceRead,
+    EnrichmentTierRead,
+    EnrichRequest,
 )
 from app.schemas.common import Page
 from app.schemas.website import JobRead
 from app.services.business_service import BusinessService, ProfileService
 from app.services.contact_service import ContactService
 from app.services.discovery_service import DiscoveryService
+from app.services.enrichment_service import EnrichmentService
 
 router = APIRouter(prefix="/businesses", tags=["Businesses"])
 
@@ -73,6 +76,12 @@ def discovery_runs(_: StaffReader, db: DbSession) -> list[DiscoveryRun]:
 def discovery_sources(_: StaffReader, db: DbSession, settings: AppSettings) -> list[DiscoverySourceRead]:
     return [DiscoverySourceRead(**{**s.__dict__, "category": s.category.value})
             for s in DiscoveryService(db, settings).sources()]
+
+
+@router.get("/enrichment-tiers", response_model=list[EnrichmentTierRead],
+            summary="Contact-enrichment tiers and whether each is enabled")
+def enrichment_tiers(_: StaffReader, db: DbSession, settings: AppSettings) -> list[EnrichmentTierRead]:
+    return [EnrichmentTierRead(**t.__dict__) for t in EnrichmentService(db, settings).tiers()]
 
 
 @router.post("/discover", response_model=JobRead, status_code=status.HTTP_202_ACCEPTED,
@@ -140,3 +149,11 @@ def update_profile(business_id: uuid.UUID, body: BusinessProfileUpdate, _: Staff
 def business_contacts(business_id: uuid.UUID, _: StaffReader, db: DbSession) -> list[BusinessContact]:
     BusinessRepository(db).get_or_404(business_id)
     return ContactService(db).contacts_for(business_id)
+
+
+@router.post("/{business_id}/enrich", response_model=JobRead, status_code=status.HTTP_202_ACCEPTED,
+             summary="Queue contact enrichment (website scrape, then enabled opt-in tiers)")
+def enrich_business(business_id: uuid.UUID, request: Request, user: Staff, db: DbSession, settings: AppSettings,
+                    body: EnrichRequest | None = None) -> FactoryJob:
+    business = BusinessRepository(db).get_or_404(business_id)
+    return EnrichmentService(db, settings).enqueue(business, actor_for(request, user), body.tiers if body else None)
