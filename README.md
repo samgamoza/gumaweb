@@ -38,7 +38,7 @@ backend/          FastAPI modular monolith (Python 3.12, SQLAlchemy 2, Alembic)
   app/workflows/    website assembly pipeline
   app/agents/       AI layer: LLM content agent, image generators (local models)
   app/workers/      factory worker: job queue + event outbox relay
-  app/models/       SQLAlchemy models (46 tables)
+  app/models/       SQLAlchemy models (47 tables)
   migrations/       Alembic
   tests/            unit + API tests
 frontend/         Next.js 15 + TypeScript + Tailwind 4: landing, claim flow, customer portal, admin console

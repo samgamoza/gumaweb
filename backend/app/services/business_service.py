@@ -84,12 +84,18 @@ class BusinessService:
         return business
 
     def import_records(self, records: Iterable[SourceItem], source: DiscoverySource, actor: Actor, *,
-                       on_created: Callable[[Business, RawBusinessRecord], None] | None = None) -> DiscoveryRun:
+                       on_created: Callable[[Business, RawBusinessRecord], None] | None = None,
+                       run: DiscoveryRun | None = None, finalize: bool = True) -> DiscoveryRun:
         """Import a batch as one DiscoveryRun. `on_created` runs inside each new business's savepoint
-        (e.g. to record contact provenance), so a failure there rolls back that business only."""
-        run = self.runs.add(DiscoveryRun(source=source, started_by=actor.user_id, errors=[]))
-        self.db.commit()
-        errors: list[dict[str, Any]] = []
+        (e.g. to record contact provenance), so a failure there rolls back that business only.
+
+        Pass `run` to add to an existing run (a campaign imports one batch per source), and
+        `finalize=False` to leave its status and finish time to the caller.
+        """
+        if run is None:
+            run = self.runs.add(DiscoveryRun(source=source, started_by=actor.user_id, errors=[]))
+            self.db.commit()
+        errors: list[dict[str, Any]] = list(run.errors or [])
         try:
             for index, record in enumerate(records, start=1):
                 run.total_records += 1
@@ -111,11 +117,15 @@ class BusinessService:
                     run.error_count += 1
                     if len(errors) < MAX_IMPORT_ERRORS_STORED:
                         errors.append({"row": index, "error": str(exc)[:300]})
-            run.status = DiscoveryRunStatus.COMPLETED
+            if finalize:
+                run.status = DiscoveryRunStatus.COMPLETED
         except Exception as exc:  # malformed file etc.
             run.status = DiscoveryRunStatus.FAILED
             errors.append({"row": None, "error": str(exc)[:300]})
         run.errors = errors
+        if not finalize and run.status != DiscoveryRunStatus.FAILED:
+            self.db.commit()
+            return run
         run.finished_at = datetime.now(UTC)
         audit(self.db, actor, AuditAction.BUSINESS_IMPORTED, "discovery_run", run.id,
               {"created": run.created_count, "duplicates": run.duplicate_count, "errors": run.error_count})

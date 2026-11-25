@@ -45,14 +45,90 @@ export interface Business {
   created_at: string;
 }
 
+export interface DiscoveryRunProgress {
+  queries_done?: number;
+  queries_planned?: number;
+  found?: number;
+  prospects?: number;
+  target?: number;
+  sources?: string[];
+  current?: string;
+  warnings?: string[];
+}
+
 export interface DiscoveryRun {
   id: string;
-  status: string;
+  source: string;
+  status: "queued" | "running" | "completed" | "failed" | "cancelled";
   total_records: number;
   created_count: number;
   duplicate_count: number;
   error_count: number;
   errors: { row: number | null; error: string }[];
+  campaign_id: string | null;
+  progress: DiscoveryRunProgress;
+  cancel_requested: boolean;
+  started_at: string;
+  finished_at: string | null;
+}
+
+export interface DiscoveryCampaign {
+  id: string;
+  name: string;
+  description: string | null;
+  cities: string[];
+  categories: string[];
+  sources: string[];
+  enrichment_tiers: string[] | null;
+  target: number;
+  per_query: number;
+  created_at: string;
+  updated_at: string;
+  last_run: DiscoveryRun | null;
+}
+
+export interface DiscoverySourceInfo {
+  id: string;
+  name: string;
+  category: "directory" | "registry" | "test";
+  discovery_source: string;
+  requires_key: boolean;
+  configured: boolean;
+  billed: boolean;
+  note: string | null;
+}
+
+export interface EnrichmentTierInfo {
+  id: string;
+  name: string;
+  billed: boolean;
+  enabled: boolean;
+  note: string;
+}
+
+export interface Suppression {
+  id: string;
+  kind: "email" | "domain";
+  value: string;
+  reason: string;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface BusinessContact {
+  id: string;
+  kind: "email" | "phone" | "owner";
+  value: string;
+  source: string;
+  source_ref: string | null;
+  value_type: "observed" | "derived" | "predicted" | "user_supplied";
+  verification_status: "unverified" | "verified" | "invalid";
+  confidence: number;
+  purpose: string;
+  policy_decision: "allow" | "redacted" | "blocked";
+  reason_code: string | null;
+  acquired_at: string;
 }
 
 export type WebsiteStatus = "draft" | "blueprint_ready" | "built" | "published" | "unpublished" | "failed";

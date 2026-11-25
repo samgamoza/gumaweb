@@ -49,7 +49,8 @@ erDiagram
 |---|---|---|---|
 | Identity | `users` | Staff and customer identities, RBAC role, OAuth/MFA-ready columns | `uq email`, `uq (oauth_provider, oauth_subject)`, `ix role` |
 | Discovery | `businesses` | Normalized directory record plus opportunity score | `uq slug`, `uq dedupe_key`, `ck score 0..100`, `ix (generate_candidate, score)`, `ix (industry, city)`, `ix status` |
-| Discovery | `discovery_runs` | One import/crawl batch with created/duplicate/error counters | |
+| Discovery | `discovery_runs` | One import/crawl batch with created/duplicate/error counters; campaign runs add `campaign_id`, live `progress` and `cancel_requested` | `ix campaign_id` |
+| Discovery | `discovery_campaigns` | Saved sweep: cities, categories, sources, enrichment tiers, target, per-query limit | `ck target 1..5000`, `ck per_query 1..500` |
 | Discovery | `business_contacts` | Every email/phone/owner learned about a business with its provenance: source, source_ref, value_type (observed/derived/predicted/user_supplied), verification, confidence, purpose, policy decision + reason code, acquired/retention dates. Only observed or user-supplied, allowed, not-invalid contacts may become `businesses.email`/`phone` | `uq (business_id, kind, value)`, `ck confidence 0..1`, `ix business_id`, `ix (kind, value)` |
 | Intelligence | `business_profiles` | Industry, category, services, keywords, tone, recommended template | `uq business_id`, `ix category` |
 | Templates | `templates` | Master template: pages → sections, theme tokens, industries | `uq slug`, `ix category` |

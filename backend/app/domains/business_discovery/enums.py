@@ -14,9 +14,14 @@ class BusinessStatus(StrEnum):
 
 
 class DiscoveryRunStatus(StrEnum):
+    QUEUED = "queued"  # campaign run waiting for a worker
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
+    CANCELLED = "cancelled"  # stopped by an operator; what was found so far is still imported
+
+
+ACTIVE_RUN_STATUSES = (DiscoveryRunStatus.QUEUED, DiscoveryRunStatus.RUNNING)
 
 
 class DiscoverySource(StrEnum):

@@ -9,6 +9,7 @@ from app.api.v1.endpoints import (
     businesses,
     claims,
     customer,
+    discovery,
     domains,
     engagement,
     health,
@@ -26,5 +27,6 @@ for module in (auth, businesses, templates, websites, claims, customer, engageme
 api_router.include_router(automation.router)
 api_router.include_router(automation.gateway)
 api_router.include_router(presence.router)
+api_router.include_router(discovery.router)
 api_router.include_router(domains.router)
 api_router.include_router(domains.edge)

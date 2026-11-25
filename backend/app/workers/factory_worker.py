@@ -118,6 +118,12 @@ def _enrich(db: Session, settings: Settings, payload: dict[str, Any]) -> dict[st
     return run_enrichment_job(db, settings, payload)
 
 
+def _run_campaign(db: Session, settings: Settings, payload: dict[str, Any]) -> dict[str, Any]:
+    from app.services.campaign_service import run_campaign_job
+
+    return run_campaign_job(db, settings, payload)
+
+
 HANDLERS: dict[JobKind, Handler] = {
     JobKind.GENERATE_WEBSITE: _generate,
     JobKind.REGENERATE_WEBSITE: _regenerate,
@@ -129,6 +135,7 @@ HANDLERS: dict[JobKind, Handler] = {
     JobKind.CHECK_DOMAINS: _check_domains,
     JobKind.DISCOVER_BUSINESSES: _discover,
     JobKind.ENRICH_BUSINESS: _enrich,
+    JobKind.RUN_CAMPAIGN: _run_campaign,
 }
 
 

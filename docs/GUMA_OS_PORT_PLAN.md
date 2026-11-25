@@ -176,7 +176,20 @@ where noted.
   `business_id`, `created_at`); Hunter lookups write here. (`AIGeneration` stays the LLM ledger;
   it has no money column and local models are free.) Fixes guma_os handoff §12 item 8.
 
-### Step 5 — crawl campaigns + admin UI
+### Step 5 — crawl campaigns + admin UI — **done**
+
+> Landed as `discovery_campaigns` + run progress columns (migration `0009`), `services/campaign_service.py`,
+> `JobKind.RUN_CAMPAIGN`, the `/discovery` API, and three admin screens: **Discovery** (campaigns, live sweep
+> progress with cancel, run history), **Do-not-contact** (add/check/remove suppressions) and a **Contacts**
+> provenance panel with "Find contacts" on each business. Verified in a real browser against an isolated database.
+> Notes:
+> * Single flight is system-wide via the job queue's dedupe key, not an in-process lock, so it holds across workers.
+> * Cancel works for queued and running sweeps; found results are still imported (as in guma_os).
+> * A run where every query failed is `failed`, not "completed, found 0".
+> * **Known gap (pre-existing):** the import dedupe key is name + city + phone, so the same business from two
+>   sources is two records when only one source has its phone. Fix candidates: match on normalized name + city +
+>   geo distance, or on provider ids across sources. Not changed here.
+> * A worker that dies mid-sweep leaves the run `running` until the job queue reclaims its stale lock.
 
 - **From:** `admin/src/crawl-runner.ts` (341, **16 tests**), `crawl-campaigns.ts` (273, **20 tests**),
   `read-model.ts` skipped-row visibility (**10 tests**).
