@@ -45,8 +45,13 @@ def _generate(db: Session, settings: Settings, payload: dict[str, Any]) -> dict[
     if payload.get("publish") and (website.quality_report or {}).get("publishable"):
         PublishingService(db, settings).publish(website, SYSTEM)
         published = True
+    result: dict[str, Any] = {"website_id": str(website.id), "quality": website.quality_score, "published": published}
+    if payload.get("source") == "auto_compile":  # a private draft for owner-triggered publishing
+        from app.services import lead_compiler
+
+        result["in_pipeline"] = lead_compiler.draft_built(db, website)
     db.commit()
-    return {"website_id": str(website.id), "quality": website.quality_score, "published": published}
+    return result
 
 
 def _regenerate(db: Session, settings: Settings, payload: dict[str, Any]) -> dict[str, Any]:

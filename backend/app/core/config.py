@@ -114,6 +114,10 @@ class Settings(BaseSettings):
     # --- Outbound dialer (parked until GumaDial's Integration API: docs/OUTREACH_DIALER_BRIDGE_PLAN.md) ---
     dialer_provider: Literal["none"] = "none"  # "gumadial" is added together with its adapter
 
+    # --- Outbound engine (docs/OUTBOUND_ENGINE_PLAN.md) ---------------------
+    auto_compile_enabled: bool = False  # generate + publish sites for qualifying discovered businesses, unattended
+    auto_compile_daily_limit: int = Field(default=50, ge=0)  # new auto sites per day (Philippine time)
+
     # --- AI content (Phase 2; local, OpenAI-compatible: vLLM / Ollama / llama.cpp) ---
     ai_enabled: bool = False
     llm_base_url: str = "http://localhost:8001/v1"

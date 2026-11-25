@@ -30,6 +30,7 @@ CONVERTED_STAGES = (ProspectStage.CLAIMED, ProspectStage.WON)
 
 
 class ActivityType(StrEnum):
+    DRAFT_READY = "draft_ready"  # a private, quality-checked draft site exists: the prospect enters the pipeline
     SITE_PUBLISHED = "site_published"
     EMAIL_SENT = "email_sent"
     EMAIL_OPENED = "email_opened"
@@ -56,6 +57,7 @@ class ActivitySource(StrEnum):
 
 # The stage an activity moves a prospect to automatically (None: no stage effect).
 AUTO_STAGE: dict[ActivityType, ProspectStage] = {
+    ActivityType.DRAFT_READY: ProspectStage.NEW,
     ActivityType.SITE_PUBLISHED: ProspectStage.NEW,
     ActivityType.EMAIL_SENT: ProspectStage.CONTACTED,
     ActivityType.EMAIL_OPENED: ProspectStage.ENGAGED,

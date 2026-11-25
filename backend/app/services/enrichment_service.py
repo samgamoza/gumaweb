@@ -221,8 +221,16 @@ class EnrichmentService:
 
 def run_enrichment_job(db: Session, settings: Settings, payload: dict[str, Any]) -> dict[str, Any]:
     """Factory worker handler for JobKind.ENRICH_BUSINESS."""
+    from app.services import lead_compiler  # local: keeps enrichment importable without the outbound engine
+    from app.services.prospect_service import ProspectService
+
     business = db.get(Business, uuid.UUID(payload["business_id"]))
     if business is None:
         return {"skipped": "business_deleted"}
-    return EnrichmentService(db, settings).enrich(business, payload.get("tiers")).as_dict()
+    result = EnrichmentService(db, settings).enrich(business, payload.get("tiers")).as_dict()
+    # Contacts may have changed: refresh the outbound priority, and compile a site if it now qualifies.
+    ProspectService(db).rescore(business.id)
+    result["auto_compile"] = lead_compiler.consider(db, settings, business)
+    db.commit()
+    return result
 
