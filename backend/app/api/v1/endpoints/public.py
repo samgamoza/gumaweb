@@ -5,22 +5,27 @@ from __future__ import annotations
 import json
 from datetime import date as date_type
 from typing import Annotated
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Form, Query, Request, Response, status
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import ValidationError
 
-from app.api.deps import AppSettings, DbSession, client_ip
+from app.api.deps import AppSettings, DbSession, actor_for, client_ip
 from app.core.exceptions import NotFoundError, ValidationFailedError
 from app.core.rate_limit import get_rate_limiter
 from app.domains.business_discovery.normalization import normalize_email
+from app.domains.claims.enums import ClaimStatus
 from app.domains.website_factory.enums import WebsiteStatus
 from app.repositories.repositories import WebsiteRepository
 from app.schemas.analytics import PublicSiteInfo, SiteEventIn
+from app.schemas.claim import ClaimStarted
 from app.schemas.engagement import BookingRequest, BookingResult, ChatIn, ChatOut, Slot
+from app.schemas.start import StartClaim, StartDetailsUpdate, StartInfo
 from app.services.analytics_service import AnalyticsService
 from app.services.booking_service import BookingService
 from app.services.chatbot_service import ChatbotService
+from app.services.claim_link_service import ClaimLinkService
 from app.services.outreach_service import OutreachService
 
 router = APIRouter(prefix="/public", tags=["Public"])
@@ -100,6 +105,58 @@ def outreach_open(token: str, db: DbSession, settings: AppSettings) -> Response:
 def outreach_click(token: str, db: DbSession, settings: AppSettings) -> Response:
     url = OutreachService(db, settings).track_click(token)
     return RedirectResponse(url or settings.frontend_url, status_code=302)
+
+
+# --- A7: private claim links (owner-triggered publishing) -----------------------------------------
+# The token is the only credential: keep it out of referrers, caches and search engines.
+PRIVATE_HEADERS = {"X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "no-referrer",
+                   "Cache-Control": "private, no-store"}
+
+
+@router.get("/start/{token}", response_model=StartInfo, summary="Open a private claim link (records the click)")
+def start_open(token: str, request: Request, response: Response, db: DbSession, settings: AppSettings) -> StartInfo:
+    get_rate_limiter().check("start", client_ip(request) or "unknown", 120)
+    response.headers.update(PRIVATE_HEADERS)
+    return ClaimLinkService(db, settings).open(token)
+
+
+@router.get("/start/{token}/site/{path:path}", include_in_schema=False)
+def start_preview(token: str, path: str, request: Request, db: DbSession, settings: AppSettings) -> Response:
+    get_rate_limiter().check("start-preview", client_ip(request) or "unknown", 600)
+    data, media_type = ClaimLinkService(db, settings).preview_file(token, path)
+    # Shown in a frame on the claim page (frontend origin) only.
+    frontend = urlsplit(settings.frontend_url)
+    framer = f"{frontend.scheme}://{frontend.netloc}"
+    return Response(content=data, media_type=media_type,
+                    headers={**PRIVATE_HEADERS, "Content-Security-Policy": f"frame-ancestors {framer}"})
+
+
+@router.patch("/start/{token}/details", response_model=StartInfo, summary="Save the owner's answers to the draft")
+def start_details(token: str, body: StartDetailsUpdate, request: Request, response: Response, db: DbSession,
+                  settings: AppSettings) -> StartInfo:
+    get_rate_limiter().check("start-details", client_ip(request) or "unknown", 60)
+    response.headers.update(PRIVATE_HEADERS)
+    return ClaimLinkService(db, settings).save_details(token, body, actor_for(request))
+
+
+@router.post("/start/{token}/claim", response_model=ClaimStarted, status_code=status.HTTP_201_CREATED,
+             summary="Claim the draft from its private link (publishes at claim once verified)")
+def start_claim(token: str, body: StartClaim, request: Request, db: DbSession, settings: AppSettings) -> ClaimStarted:
+    if body.website:  # honeypot
+        raise ValidationFailedError("Invalid submission")
+    limiter = get_rate_limiter()
+    limiter.check("claim-ip", client_ip(request) or "unknown", settings.claim_rate_limit_per_hour)
+    limiter.check("claim-email", body.claimant_email.lower(), settings.claim_rate_limit_per_hour)
+    claim = ClaimLinkService(db, settings).claim(token, body, actor_for(request))
+    message = {
+        ClaimStatus.MANUAL_REVIEW: "Your claim is under review. We will email you once it is approved.",
+        ClaimStatus.PENDING_VERIFICATION: (
+            "We sent a 6-digit code to your phone." if body.method == "sms"
+            else "Check your email for a verification link."
+        ),
+    }.get(claim.status, "Claim received.")
+    return ClaimStarted(claim_id=claim.id, status=claim.status, method=claim.method,
+                        expires_at=claim.expires_at, message=message)
 
 
 @router.get("/outreach/unsubscribe/{token}", response_class=HTMLResponse, include_in_schema=False)

@@ -416,3 +416,28 @@ export interface CustomDomainRow {
   verified_at: string | null; last_checked_at: string | null; last_error: string | null;
   records: DnsRecordRow[]; email: MailSummary | null;
 }
+
+/** Private claim link (A7): `/start/<token>`. */
+export interface StartDetails {
+  name: string;
+  description: string | null;
+  address: string | null;
+  facebook: string | null;
+  services: string[];
+  phone: string | null;
+  email: string | null;
+}
+
+export interface StartInfo {
+  business_name: string;
+  industry: string | null;
+  city: string | null;
+  province: string | null;
+  status: "ready" | "claimed";
+  expires_at: string;
+  preview_url: string;
+  masked_email: string | null;
+  masked_phone: string | null;
+  details: StartDetails;
+  pending_claim: string | null;
+}

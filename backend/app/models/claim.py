@@ -59,3 +59,24 @@ class Claim(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     review_notes: Mapped[str | None] = mapped_column(Text)
 
     business: Mapped[Business] = relationship()
+
+
+class ClaimLink(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Private claim link for a private draft (A7, owner-triggered publishing): `/start/<token>`.
+
+    One per outreach email (later emails renew access with a fresh link); only the token's hash is stored. Owner
+    answers to the details form wait here (`answers`) when they touch what verification relies on (phone, email):
+    they are applied to the business only once ownership is transferred."""
+
+    __tablename__ = "claim_links"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id", ondelete="CASCADE"), index=True)
+    website_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("websites.id", ondelete="CASCADE"))
+    message_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("outreach_messages.id", ondelete="SET NULL"))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    expires_at: Mapped[datetime]
+    first_opened_at: Mapped[datetime | None]
+    last_opened_at: Mapped[datetime | None]
+    open_count: Mapped[int] = mapped_column(Integer, default=0)
+    form_started_at: Mapped[datetime | None]
+    answers: Mapped[dict[str, Any]] = mapped_column(default=dict)

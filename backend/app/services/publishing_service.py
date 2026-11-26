@@ -48,10 +48,11 @@ class PublishingService:
     def claim_url(self, website: Website) -> str:
         return f"{self.settings.frontend_url.rstrip('/')}/claim/{website.subdomain}"
 
-    def render(self, website: Website, version: int) -> dict[str, bytes]:
+    def render(self, website: Website, version: int, *, preview: bool = False) -> dict[str, bytes]:
+        """`preview`: the owner's private preview of a draft (claim link, A7): no claim banner."""
         if not website.blueprint or website.seo is None:
             raise ValidationFailedError("Website has no blueprint; generate it first")
-        blueprint = {**website.blueprint, "claim_banner": not website.is_claimed}
+        blueprint = {**website.blueprint, "claim_banner": not website.is_claimed and not preview}
         content = {k: row.content for k, row in self.websites.content_map(website.id).items()}
         seo = {
             "page_title": website.seo.page_title,

@@ -173,20 +173,26 @@ class OutreachService:
             return None
         now = now or datetime.now(UTC)
         token = secrets.token_urlsafe(24)
+        message = OutreachMessage(campaign_id=campaign.id, business_id=business.id, website_id=website.id,
+                                  channel=OutreachChannel.EMAIL, step=step, recipient=business.email, subject="",
+                                  body="", tracking_token=token, status=MessageStatus.SCHEDULED, scheduled_at=now)
+        self.db.add(message)
+        self.db.flush()
+        if website.status == WebsiteStatus.PUBLISHED:
+            claim_url = self._api(f"/public/outreach/click/{token}")  # click-tracked; lands on the live site
+        else:  # a private draft: a fresh private claim link (A7); opening it records the click
+            from app.services.claim_link_service import ClaimLinkService  # local: it imports the claim service
+
+            links = ClaimLinkService(self.db, self.settings, now=now)
+            claim_url = links.start_url(links.issue(website, message_id=message.id)[1])
         variables = {
             "business_name": business.name,
             "city": business.city or "your area",
-            "website_url": self._api(f"/public/outreach/click/{token}"),
-            "claim_url": self._api(f"/public/outreach/click/{token}"),  # click-tracked; lands on the claim page
+            "website_url": claim_url,
+            "claim_url": claim_url,
             "unsubscribe_url": self._api(f"/public/outreach/unsubscribe/{token}"),
         }
-        rendered_subject, rendered_body = render_message(subject, body, variables)
-        message = OutreachMessage(campaign_id=campaign.id, business_id=business.id, website_id=website.id,
-                                  channel=OutreachChannel.EMAIL, step=step, recipient=business.email,
-                                  subject=rendered_subject, body=rendered_body, tracking_token=token,
-                                  status=MessageStatus.SCHEDULED, scheduled_at=now)
-        self.db.add(message)
-        self.db.flush()
+        message.subject, message.body = render_message(subject, body, variables)
         self._deliver(message, now)
         return message
 

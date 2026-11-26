@@ -4,9 +4,9 @@ One pass (`tick`) runs as a queued job about once a minute while `OUTBOUND_ENGIN
 its dedupe key), or on demand from the admin API / CLI. Each pass:
 
 1. **Enrolls** ready prospects (best priority score first) up to the daily enrollment cap. Eligible: ready
-   (`ProspectService.ready_query`), a claim link exists, and no manual campaign has messages queued for them.
-   Until the onboarding funnel (A7) ships the private claim link, only prospects with a published, unclaimed site
-   have a claim link, so drafts wait.
+   (`ProspectService.ready_query`), an unclaimed site that is live (earlier flow) or a private draft, and no
+   manual campaign has messages queued for them. A draft's emails carry a fresh private claim link (A7,
+   `claim_link_service`).
 2. **Advances** every active enrollment: stops it when the prospect converted or closed, completes it when every
    step fired or was skipped or its time ran out, otherwise applies the step rules (`domains/sales/playbooks.py`).
 
@@ -45,6 +45,7 @@ from app.models import (
     Website,
 )
 from app.models.sales import EnrollmentStatus
+from app.services.claim_service import CLAIMABLE_DRAFT_STATES
 from app.services.lead_compiler import day_start
 from app.services.outreach_service import OutreachService
 from app.services.prospect_service import ProspectService
@@ -106,8 +107,9 @@ class OutboundEngine:
         if room <= 0:
             return 0
         already = select(PlaybookEnrollment.prospect_id).where(PlaybookEnrollment.playbook_id == playbook.id)
-        claimable = select(Website.business_id).where(Website.status == WebsiteStatus.PUBLISHED,
-                                                      Website.is_claimed.is_(False))
+        # A live unclaimed site (earlier flow) or a private draft, which emails reach by a private claim link.
+        claimable = select(Website.business_id).where(
+            Website.status.in_([WebsiteStatus.PUBLISHED, *CLAIMABLE_DRAFT_STATES]), Website.is_claimed.is_(False))
         manual_queue = exists().where(OutreachMessage.business_id == Prospect.business_id,
                                       OutreachMessage.status == MessageStatus.SCHEDULED)
         stmt = (ProspectService(self.db).ready_query(self.now)

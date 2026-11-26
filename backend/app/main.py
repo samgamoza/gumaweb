@@ -57,7 +57,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         REQUESTS.labels(request.method, path, response.status_code).inc()
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-        response.headers.setdefault("X-Frame-Options", "DENY")
+        if "frame-ancestors" not in response.headers.get("Content-Security-Policy", ""):
+            response.headers.setdefault("X-Frame-Options", "DENY")  # a route may allow named framers via CSP
         return response
 
     @app.exception_handler(GumaWebError)
