@@ -12,6 +12,7 @@ from sqlalchemy import select
 from app.domains.website_factory.enums import WebsiteStatus
 from app.models import Business, ClaimLink, OutreachEvent, ProspectActivity, Website
 from app.services import lead_compiler
+from app.services.draft_prep import DraftPrep
 from app.services.outbound_engine import OutboundEngine
 from app.services.prospect_service import ProspectService
 from app.services.providers import providers
@@ -28,7 +29,7 @@ def engine_settings(settings, monkeypatch):
 
 
 @pytest.fixture
-def draft(client, admin_headers, db) -> dict:
+def draft(client, admin_headers, db, settings) -> dict:
     """A private draft that passed the quality gate, in the pipeline (as the lead compiler leaves it)."""
     business = client.post("/api/v1/businesses", headers=admin_headers, json={
         "name": "Reyes Bakery", "city": "Angeles City", "province": "Pampanga", "industry": "bakery",
@@ -39,6 +40,7 @@ def draft(client, admin_headers, db) -> dict:
     website = db.get(Website, uuid.UUID(created.json()["id"]))
     assert website.status is WebsiteStatus.BLUEPRINT_READY
     assert lead_compiler.draft_built(db, website)
+    assert DraftPrep(db, settings).prepare(website).ready  # polish review (A7b): outreach-ready
     db.commit()
     return {"business_id": uuid.UUID(business["id"]), "website_id": website.id, "subdomain": website.subdomain}
 

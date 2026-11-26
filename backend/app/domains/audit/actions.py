@@ -36,6 +36,7 @@ class AuditAction(StrEnum):
     SUPPRESSION_REMOVED = "outreach.suppression_removed"
     SUPPRESSION_SCRUBBED = "outreach.suppression_scrubbed"
     PLAYBOOK_UPDATED = "outreach.playbook_updated"
+    DRAFT_APPROVED = "outreach.draft_approved"
     DISCOVERY_CAMPAIGN_CREATED = "discovery.campaign_created"
     DISCOVERY_CAMPAIGN_UPDATED = "discovery.campaign_updated"
     DISCOVERY_CAMPAIGN_DELETED = "discovery.campaign_deleted"

@@ -77,3 +77,18 @@ class TaskRead(ORMModel):
     due_at: datetime
     assignee_user_id: uuid.UUID | None
     done_at: datetime | None
+
+
+class DraftRow(BaseModel):
+    """A private draft's outreach readiness (A7b)."""
+
+    website_id: uuid.UUID
+    business_id: uuid.UUID
+    business_name: str
+    subdomain: str
+    ready: bool
+    approved: bool
+    issues: list[str]
+    reviewed_at: datetime | None
+    images: dict[str, str]
+    capture_error: str | None

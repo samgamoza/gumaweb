@@ -23,7 +23,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import exists, func, select
+from sqlalchemy import exists, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
@@ -34,6 +34,7 @@ from app.domains.sales.playbooks import DEFAULT_PLAYBOOK, Facts, decide, in_quie
 from app.domains.website_factory.enums import WebsiteStatus
 from app.models import (
     Business,
+    DraftPreview,
     OutreachCampaign,
     OutreachEvent,
     OutreachMessage,
@@ -107,9 +108,13 @@ class OutboundEngine:
         if room <= 0:
             return 0
         already = select(PlaybookEnrollment.prospect_id).where(PlaybookEnrollment.playbook_id == playbook.id)
-        # A live unclaimed site (earlier flow) or a private draft, which emails reach by a private claim link.
+        # A live unclaimed site (earlier flow), or a private draft that passed the polish review (A7b), which
+        # emails reach by a private claim link.
+        ready_drafts = select(DraftPreview.website_id).where(DraftPreview.ready.is_(True))
         claimable = select(Website.business_id).where(
-            Website.status.in_([WebsiteStatus.PUBLISHED, *CLAIMABLE_DRAFT_STATES]), Website.is_claimed.is_(False))
+            Website.is_claimed.is_(False),
+            or_(Website.status == WebsiteStatus.PUBLISHED,
+                Website.status.in_(CLAIMABLE_DRAFT_STATES) & Website.id.in_(ready_drafts)))
         manual_queue = exists().where(OutreachMessage.business_id == Prospect.business_id,
                                       OutreachMessage.status == MessageStatus.SCHEDULED)
         stmt = (ProspectService(self.db).ready_query(self.now)

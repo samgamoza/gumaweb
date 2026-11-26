@@ -123,3 +123,23 @@ class MediaAsset(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     alt_text: Mapped[str | None] = mapped_column(String(255))
     quality_score: Mapped[int | None] = mapped_column(Integer)
     source: Mapped[str] = mapped_column(String(32), default="library")  # library|generated|upload
+
+
+class DraftPreview(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Readiness of a private draft for outreach (A7b): the polish review and the preview images in the email.
+
+    `token` names the images publicly (`/public/previews/<token>/desktop`): emails load them from there, so it is
+    random and unrelated to the claim link, and it reveals nothing but the picture."""
+
+    __tablename__ = "draft_previews"
+
+    website_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("websites.id", ondelete="CASCADE"), unique=True)
+    ready: Mapped[bool] = mapped_column(Boolean, default=False)
+    review: Mapped[dict[str, Any]] = mapped_column(default=dict)
+    reviewed_at: Mapped[datetime | None]
+    approved_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    token: Mapped[str] = mapped_column(String(64), unique=True)
+    desktop_key: Mapped[str | None] = mapped_column(String(500))
+    phone_key: Mapped[str | None] = mapped_column(String(500))
+    captured_at: Mapped[datetime | None]
+    capture_error: Mapped[str | None] = mapped_column(String(500))

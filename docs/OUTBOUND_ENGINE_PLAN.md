@@ -1,7 +1,7 @@
 # Outbound onboarding engine — development plan
 
-Status: **in progress** (2026-11-26). C1, A1, A2 and A7a (private claim link + publish at claim) built; the rest
-planned. Revised on 2026-11-26: AI agent layer
+Status: **in progress** (2026-11-26). C1, A1, A2, A7a (private claim link + publish at claim) and A7b (polish
+review + preview images) built; the rest planned. Revised on 2026-11-26: AI agent layer
 added, and **owner-triggered publishing** adopted (§1.1).
 Replaces the earlier "sales CRM" plan, which centred on screens where people move prospects by hand. The founder's
 direction: an **automated** engine, with people stepping in only where they lift conversion.
@@ -149,10 +149,28 @@ Planned (original design):
   site **publishes at claim**. Anyone else, such as someone the email was forwarded to, gets +40 risk and goes to
   manual review; approval then publishes. Drafts can't be claimed through the public `/claim/<subdomain>` page.
 
+**A7b — built:** polish review, preview images, the email that shows them.
+* Each draft that enters the pipeline gets a `prepare_draft` job (`draft_previews`, migration 0015). The engine only
+  emails drafts the job found **outreach-ready**, a stricter bar than "publishable":
+  * every quality check passes;
+  * copy is clean: no spam terms or invented claims anywhere, and model-written sections meet the readability bar
+    (template copy is the baseline that bar is measured against);
+  * a hero image, at least two services, and a phone or email on the site.
+* Drafts that fall short are held: `GET /pipeline/drafts?held=true` lists them with their issues. An admin fixes the
+  content and re-runs (`POST /pipeline/drafts/{id}/prepare`), or approves despite the review (`…/approve`,
+  audited; approval survives re-runs).
+* Preview images: `PREVIEW_CAPTURE_BACKEND=playwright` renders the draft from local files in headless Chromium
+  (other hosts blocked except web fonts) and takes a desktop (1200×750) and a phone (390×780) JPEG, about 45 KB and
+  30 KB. They are stored in object storage and served from `/public/previews/<token>/desktop|phone`. The token is
+  unrelated to the claim link, and the images are `noindex`. A failed capture never holds a draft back. The default
+  (`none`) sends no picture. The worker image gets Chromium with `--build-arg WITH_PREVIEWS=true`.
+* Emails to drafts get an HTML part: headline, the desktop and phone pictures linked to the claim link, a "See and
+  claim your website" button, then the message. Alt text and the button carry it when images are blocked; the
+  plain-text part is the full message. Emails to live sites are unchanged.
+
 Still to come:
-* **A7b:** polish pass before outreach, preview images (headless browser, desktop + phone) in the email, HTML email
-  with a text fallback.
 * **A7c:** claim assistant (below).
+* AI rewrite of held or generic copy before review (with the A3 copywriter).
 * Hours and logo/photo upload on the form.
 
 Planned (original design):

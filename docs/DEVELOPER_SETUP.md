@@ -141,6 +141,11 @@ python -m app.cli rescore-prospects                # refresh outbound priority s
 python -m app.cli outbound-tick                    # one outbound engine pass now (enroll + due follow-ups)
 ```
 
+Draft preview images in outreach emails (optional): `pip install -r requirements/preview.txt`, then
+`playwright install chromium`, and set `PREVIEW_CAPTURE_BACKEND=playwright`. The worker image gets the browser with
+`docker build -f backend/Dockerfile --build-arg WITH_PREVIEWS=true …`. Without it, emails go out with a headline and
+a button but no picture.
+
 ### Live discovery and enrichment
 
 Discovery runs on the worker (`discover_businesses`, `run_campaign` and `enrich_business` jobs), so start
