@@ -1,0 +1,4 @@
+# Optional: draft preview images for outreach emails (PREVIEW_CAPTURE_BACKEND=playwright, outbound engine A7b).
+# After installing, fetch the browser: playwright install --with-deps chromium
+-r prod.txt
+playwright>=1.55

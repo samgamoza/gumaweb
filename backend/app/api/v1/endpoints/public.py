@@ -26,6 +26,7 @@ from app.services.analytics_service import AnalyticsService
 from app.services.booking_service import BookingService
 from app.services.chatbot_service import ChatbotService
 from app.services.claim_link_service import ClaimLinkService
+from app.services.draft_prep import DraftPrep
 from app.services.outreach_service import OutreachService
 
 router = APIRouter(prefix="/public", tags=["Public"])
@@ -157,6 +158,14 @@ def start_claim(token: str, body: StartClaim, request: Request, db: DbSession, s
     }.get(claim.status, "Claim received.")
     return ClaimStarted(claim_id=claim.id, status=claim.status, method=claim.method,
                         expires_at=claim.expires_at, message=message)
+
+
+@router.get("/previews/{token}/{kind}", include_in_schema=False)
+def draft_preview_image(token: str, kind: str, db: DbSession, settings: AppSettings) -> Response:
+    """Preview image of a draft in an outreach email (A7b). Unguessable name; never indexed."""
+    data, media_type = DraftPrep(db, settings).image(token, kind)
+    return Response(content=data, media_type=media_type,
+                    headers={"X-Robots-Tag": "noindex", "Cache-Control": "public, max-age=86400"})
 
 
 @router.get("/outreach/unsubscribe/{token}", response_class=HTMLResponse, include_in_schema=False)

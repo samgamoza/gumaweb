@@ -17,6 +17,7 @@ from app.services.notifications import (
     SmsSender,
     SmtpEmailSender,
 )
+from app.services.preview_capture import PreviewCapture, build_capture
 
 
 class Providers:
@@ -29,6 +30,17 @@ class Providers:
         self._dns: DnsResolver | None = None
         self._mail: MailProvider | None = None
         self._dialer: Dialer | None = None
+        self._previews: PreviewCapture | None = None
+
+    @property
+    def previews(self) -> PreviewCapture:
+        if self._previews is None:
+            self._previews = build_capture(get_settings().preview_capture_backend)
+        return self._previews
+
+    @previews.setter
+    def previews(self, value: PreviewCapture) -> None:
+        self._previews = value
 
     @property
     def dialer(self) -> Dialer:

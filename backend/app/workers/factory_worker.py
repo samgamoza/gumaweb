@@ -141,6 +141,12 @@ def _run_outbound(db: Session, settings: Settings, payload: dict[str, Any]) -> d
     return run_outbound_job(db, settings, payload)
 
 
+def _prepare_draft(db: Session, settings: Settings, payload: dict[str, Any]) -> dict[str, Any]:
+    from app.services.draft_prep import run_prepare_job
+
+    return run_prepare_job(db, settings, payload)
+
+
 HANDLERS: dict[JobKind, Handler] = {
     JobKind.GENERATE_WEBSITE: _generate,
     JobKind.REGENERATE_WEBSITE: _regenerate,
@@ -155,6 +161,7 @@ HANDLERS: dict[JobKind, Handler] = {
     JobKind.RUN_CAMPAIGN: _run_campaign,
     JobKind.SCRUB_SUPPRESSION: _scrub_suppression,
     JobKind.RUN_OUTBOUND: _run_outbound,
+    JobKind.PREPARE_DRAFT: _prepare_draft,
 }
 
 

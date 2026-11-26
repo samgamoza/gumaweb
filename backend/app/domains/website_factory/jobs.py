@@ -20,6 +20,7 @@ class JobKind(StrEnum):
     RUN_CAMPAIGN = "run_campaign"  # Guma OS port step 5
     SCRUB_SUPPRESSION = "scrub_suppression"  # Guma OS port step 6
     RUN_OUTBOUND = "run_outbound"  # outbound engine A2: one playbook engine pass
+    PREPARE_DRAFT = "prepare_draft"  # A7b: polish review + preview images before a draft is emailed
 
 
 class JobStatus(StrEnum):

@@ -144,14 +144,19 @@ class OutreachService:
         self.db.commit()
         return DispatchResult(sent=sent, skipped=skipped, failed=failed)
 
-    def _deliver(self, message: OutreachMessage, now: datetime) -> bool:
-        """Send one email with its open pixel; record it. Returns False (message marked failed) on error."""
+    def _deliver(self, message: OutreachMessage, now: datetime, showcase: dict[str, str] | None = None) -> bool:
+        """Send one email with its open pixel; record it. Returns False (message marked failed) on error.
+
+        `showcase` (a private draft, A7b): `claim_url`, `business_name` and any preview image URLs; the HTML part
+        then leads with the picture of their site and a button. The plain-text part is always the full message."""
         try:
             pixel = self._api(f"/public/outreach/open/{message.tracking_token}.gif")
+            text_html = (f"<div style=\"white-space:pre-wrap;font-family:sans-serif\">{html.escape(message.body)}"
+                         f"</div>")
+            body_html = _showcase_html(message.subject or "", text_html, showcase) if showcase else text_html
             providers.email.send(EmailMessage(
                 to=message.recipient, subject=message.subject or "", text=message.body,
-                html=f"<div style=\"white-space:pre-wrap;font-family:sans-serif\">{html.escape(message.body)}"
-                     f"</div><img src=\"{pixel}\" width=\"1\" height=\"1\" alt=\"\">",
+                html=f"{body_html}<img src=\"{pixel}\" width=\"1\" height=\"1\" alt=\"\">",
             ))
         except Exception as exc:
             message.status = MessageStatus.FAILED
@@ -178,13 +183,18 @@ class OutreachService:
                                   body="", tracking_token=token, status=MessageStatus.SCHEDULED, scheduled_at=now)
         self.db.add(message)
         self.db.flush()
+        showcase = None
         if website.status == WebsiteStatus.PUBLISHED:
             claim_url = self._api(f"/public/outreach/click/{token}")  # click-tracked; lands on the live site
         else:  # a private draft: a fresh private claim link (A7); opening it records the click
             from app.services.claim_link_service import ClaimLinkService  # local: it imports the claim service
+            from app.services.draft_prep import DraftPrep
 
             links = ClaimLinkService(self.db, self.settings, now=now)
             claim_url = links.start_url(links.issue(website, message_id=message.id)[1])
+            prep = DraftPrep(self.db, self.settings)
+            showcase = {"claim_url": claim_url, "business_name": business.name,
+                        **prep.image_urls(prep.for_website(website.id))}
         variables = {
             "business_name": business.name,
             "city": business.city or "your area",
@@ -193,7 +203,7 @@ class OutreachService:
             "unsubscribe_url": self._api(f"/public/outreach/unsubscribe/{token}"),
         }
         message.subject, message.body = render_message(subject, body, variables)
-        self._deliver(message, now)
+        self._deliver(message, now, showcase)
         return message
 
     def _complete_finished_campaigns(self) -> None:
@@ -265,3 +275,26 @@ class OutreachService:
             conversions=counts.get(OutreachEventType.CLAIM_COMPLETED, 0),
             unsubscribes=counts.get(OutreachEventType.UNSUBSCRIBED, 0),
         )
+
+
+def _showcase_html(subject: str, text_html: str, showcase: dict[str, str]) -> str:
+    """The HTML part for a private draft: headline, the preview of their site (linked), the message, a button.
+    Works with images blocked: the headline, alt text and button carry it."""
+    url = html.escape(showcase["claim_url"], quote=True)
+    name = html.escape(showcase.get("business_name", ""))
+    pictures = ""
+    if showcase.get("desktop"):
+        phone = (f'<td width="120" valign="bottom" style="padding-left:12px"><a href="{url}"><img '
+                 f'src="{html.escape(showcase["phone"], quote=True)}" width="120" alt="Your website on a phone" '
+                 'style="display:block;width:120px;border:1px solid #e7e5e4;border-radius:12px"></a></td>'
+                 if showcase.get("phone") else "")
+        pictures = (f'<table role="presentation" cellpadding="0" cellspacing="0" style="margin:16px 0"><tr>'
+                    f'<td valign="bottom"><a href="{url}"><img src="{html.escape(showcase["desktop"], quote=True)}" '
+                    f'width="440" alt="Preview of the {name} website" style="display:block;width:100%;'
+                    f'max-width:440px;border:1px solid #e7e5e4;border-radius:8px"></a></td>{phone}</tr></table>')
+    button = (f'<p style="margin:20px 0"><a href="{url}" style="display:inline-block;background:#0f766e;color:#fff;'
+              'padding:12px 20px;border-radius:8px;text-decoration:none;font-family:sans-serif;font-weight:600">'
+              'See and claim your website</a></p>')
+    return (f'<div style="max-width:600px;font-family:sans-serif;color:#1c1917">'
+            f'<h1 style="font-size:20px;margin:0 0 4px">{html.escape(subject)}</h1>{pictures}{button}'
+            f'{text_html}</div>')

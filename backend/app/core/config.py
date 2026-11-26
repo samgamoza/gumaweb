@@ -93,6 +93,7 @@ class Settings(BaseSettings):
     claim_manual_review_threshold: int = 60
     claim_rate_limit_per_hour: int = 5
     claim_link_ttl_days: int = 21  # private claim links in outreach emails (A7); each email issues a fresh one
+    preview_capture_backend: Literal["none", "playwright"] = "none"  # draft preview images for emails (A7b)
     default_country_code: str = "63"  # Philippines
 
     # --- Live discovery (Guma OS port step 3) ------------------------------

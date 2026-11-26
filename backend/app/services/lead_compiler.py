@@ -68,4 +68,7 @@ def draft_built(db: Session, website: Website) -> bool:
     ProspectService(db).record(website.business_id, ActivityType.DRAFT_READY,
                                external_id=f"website:{website.id}:draft_ready",
                                data={"quality": website.quality_score, "template": report.get("template")})
+    # A7b: polish review + preview images before the first email (the engine emails ready drafts only).
+    JobQueue(db).enqueue(JobKind.PREPARE_DRAFT, {"website_id": str(website.id)},
+                         dedupe_key=f"prepare:{website.id}", priority=AUTO_COMPILE_PRIORITY)
     return True

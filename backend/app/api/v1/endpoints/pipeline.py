@@ -13,10 +13,20 @@ from app.domains.audit.actions import AuditAction
 from app.domains.sales import ProspectStage
 from app.domains.sales.playbooks import PlaybookError, validate_steps
 from app.domains.website_factory.jobs import JobKind
-from app.models import Business, Playbook, PlaybookEnrollment, Prospect, ProspectActivity, ProspectTask
+from app.models import (
+    Business,
+    DraftPreview,
+    Playbook,
+    PlaybookEnrollment,
+    Prospect,
+    ProspectActivity,
+    ProspectTask,
+    Website,
+)
 from app.models.sales import EnrollmentStatus
 from app.schemas.pipeline import (
     ActivityRead,
+    DraftRow,
     PipelineSummary,
     PlaybookRead,
     PlaybookStepStats,
@@ -26,6 +36,7 @@ from app.schemas.pipeline import (
     TaskRead,
 )
 from app.services import lead_compiler
+from app.services.draft_prep import DraftPrep
 from app.services.job_queue import JobQueue
 from app.services.outbound_engine import OutboundEngine
 from app.services.prospect_service import ProspectService
@@ -132,3 +143,53 @@ def tasks(_: StaffReader, db: DbSession, open_only: bool = Query(True, alias="op
     if open_only:
         stmt = stmt.where(ProspectTask.done_at.is_(None))
     return [TaskRead.model_validate(t) for t in db.scalars(stmt)]
+
+
+# --- A7b: private drafts' outreach readiness -------------------------------------------------------------
+def _draft_row(prep: DraftPrep, row: DraftPreview, website: Website, business: Business) -> DraftRow:
+    return DraftRow(website_id=website.id, business_id=business.id, business_name=business.name,
+                    subdomain=website.subdomain, ready=row.ready, approved=row.approved_by is not None,
+                    issues=(row.review or {}).get("issues", []), reviewed_at=row.reviewed_at,
+                    images=prep.image_urls(row), capture_error=row.capture_error)
+
+
+@router.get("/drafts", response_model=list[DraftRow], summary="Private drafts and their polish review")
+def list_drafts(_: StaffReader, db: DbSession, settings: AppSettings, held: bool | None = None,
+                limit: int = Query(100, ge=1, le=500)) -> list[DraftRow]:
+    stmt = (select(DraftPreview, Website, Business).join(Website, Website.id == DraftPreview.website_id)
+            .join(Business, Business.id == Website.business_id).where(Website.is_claimed.is_(False))
+            .order_by(DraftPreview.reviewed_at.desc()).limit(limit))
+    if held is not None:
+        stmt = stmt.where(DraftPreview.ready.is_(not held))
+    prep = DraftPrep(db, settings)
+    return [_draft_row(prep, row, website, business) for row, website, business in db.execute(stmt).all()]
+
+
+def _website(db, website_id: uuid.UUID) -> Website:
+    website = db.get(Website, website_id)
+    if website is None or website.is_claimed:
+        raise NotFoundError("Draft not found")
+    return website
+
+
+@router.post("/drafts/{website_id}/prepare", response_model=DraftRow,
+             summary="Re-run the polish review (and capture) after fixing a draft")
+def prepare_draft(website_id: uuid.UUID, _: Admin, db: DbSession, settings: AppSettings) -> DraftRow:
+    website = _website(db, website_id)
+    prep = DraftPrep(db, settings)
+    row = prep.prepare(website)
+    db.commit()
+    return _draft_row(prep, row, website, website.business)
+
+
+@router.post("/drafts/{website_id}/approve", response_model=DraftRow,
+             summary="Approve a held draft for outreach despite its review")
+def approve_draft(website_id: uuid.UUID, user: Admin, request: Request, db: DbSession,
+                  settings: AppSettings) -> DraftRow:
+    website = _website(db, website_id)
+    prep = DraftPrep(db, settings)
+    row = prep.approve(website, actor_for(request, user))
+    audit(db, actor_for(request, user), AuditAction.DRAFT_APPROVED, "website", website.id,
+          {"issues": (row.review or {}).get("issues", [])})
+    db.commit()
+    return _draft_row(prep, row, website, website.business)
