@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.domains.sales import ActivitySource, ActivityType, ProspectStage
 from app.schemas.common import ORMModel
@@ -43,3 +43,37 @@ class ActivityRead(ORMModel):
 
 class ProspectDetail(ProspectRow):
     timeline: list[ActivityRead]
+
+
+class PlaybookStepStats(BaseModel):
+    key: str
+    channel: str
+    when: str
+    sent: int = 0
+    skipped: int = 0
+    failed: int = 0
+
+
+class PlaybookRead(BaseModel):
+    id: uuid.UUID
+    name: str
+    active: bool
+    max_days: int
+    steps: list[dict[str, Any]]
+    enrollments: dict[str, int]  # by status
+    step_stats: list[PlaybookStepStats]
+
+
+class PlaybookUpdate(BaseModel):
+    active: bool | None = None
+    max_days: int | None = Field(None, ge=1, le=180)
+    steps: list[dict[str, Any]] | None = None
+
+
+class TaskRead(ORMModel):
+    id: uuid.UUID
+    prospect_id: uuid.UUID
+    title: str
+    due_at: datetime
+    assignee_user_id: uuid.UUID | None
+    done_at: datetime | None

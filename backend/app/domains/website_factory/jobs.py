@@ -19,6 +19,7 @@ class JobKind(StrEnum):
     ENRICH_BUSINESS = "enrich_business"  # Guma OS port step 4
     RUN_CAMPAIGN = "run_campaign"  # Guma OS port step 5
     SCRUB_SUPPRESSION = "scrub_suppression"  # Guma OS port step 6
+    RUN_OUTBOUND = "run_outbound"  # outbound engine A2: one playbook engine pass
 
 
 class JobStatus(StrEnum):

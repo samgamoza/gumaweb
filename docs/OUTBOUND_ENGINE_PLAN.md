@@ -1,6 +1,6 @@
 # Outbound onboarding engine — development plan
 
-Status: **in progress** (2026-11-26). C1 and A1 built; A2–A8 planned. Revised on 2026-11-26: AI agent layer
+Status: **in progress** (2026-11-26). C1, A1 and A2 built; A3–A8 planned. Revised on 2026-11-26: AI agent layer
 added, and **owner-triggered publishing** adopted (§1.1).
 Replaces the earlier "sales CRM" plan, which centred on screens where people move prospects by hand. The founder's
 direction: an **automated** engine, with people stepping in only where they lift conversion.
@@ -88,7 +88,35 @@ As built:
 Still to come with the onboarding funnel (A7): the polish pass and the preview images (headless-browser capture of
 each draft, desktop + phone).
 
-### A2 — campaign engine (the aggressive outbound)
+### A2 — campaign engine (the aggressive outbound) — **built**
+
+As built:
+* `playbooks` + `playbook_enrollments` (migration 0013). The default playbook, "Claim your website", is created on
+  first use:
+  * `intro` on enrollment;
+  * `resend` 48h later if not opened or engaged;
+  * `waiting` 24h after a click with no claim;
+  * `almost` 2h after an abandoned claim;
+  * a `call` task after 72h with no engagement, score ≥ 70.
+* Step rules are pure (`domains/sales/playbooks.py`). Each step fires at most once, triggered by `enrolled`,
+  `not_opened`, `clicked_not_claimed`, `claim_abandoned` or `no_engagement`, plus a delay.
+* `OutboundEngine.tick()` runs as a `run_outbound` job about once a minute while `OUTBOUND_ENGINE_ENABLED` is on
+  (single flight), or via `POST /pipeline/outbound/run` / `outbound-tick`. Each pass:
+  * enrolls ready prospects, best score first, up to `OUTBOUND_DAILY_ENROLLMENT_LIMIT`;
+  * stops an enrollment on conversion or closure, and completes it when every step is done or `max_days` passes.
+* Guardrails:
+  * quiet hours (20:00–08:00 Manila) and a weekly touch cap (3) defer a message, never skip it;
+  * one message per prospect per pass;
+  * suppression checked again at send time;
+  * a prospect queued in a manual campaign isn't enrolled.
+* Emails go out as outreach messages of the playbook's own campaign, so tracking, unsubscribe, the timeline and
+  stage moves all work unchanged.
+* SMS steps are skipped (`sms_unavailable`) until a gateway and phone opt-outs exist (E2 / A4).
+* Until A7 ships the private claim link, only prospects with a published, unclaimed site are enrolled; drafts wait.
+* API: `GET /pipeline/playbooks` (with per-step sent/skipped/failed), `PATCH /pipeline/playbooks/{id}` (admin),
+  `GET /pipeline/tasks`.
+
+Planned (original design):
 * **Playbooks** replace the fixed sequence: steps with a channel (`email`, `sms`, `call_task`, later `ai_call`), a
   delay and a condition. Examples: *not opened in 2 days → resend with a new subject*; *clicked, no claim in 24h →
   "your site is ready to claim" follow-up + call task if score ≥ 70*; *claim started and abandoned → recovery
@@ -182,7 +210,7 @@ Manual stage moves, notes and assignment live here as overrides, not as the main
 |---|---|---|
 | C1 pipeline record | — | done |
 | A1 lead compiler + priority score | C1 | done |
-| A2 campaign engine + guardrails | A1 | 4–5 days |
+| A2 campaign engine + guardrails | A1 | done |
 | A7 onboarding funnel (polish, preview images, private claim link, form, verify + publish) + claim assistant | A2 | 4–5 days |
 | A6 cockpit + measurement | A2 (grows with each step) | 3 days |
 | A3 AI agent layer (copywriter, conversation, recovery, optimizer) | A2, A6 | 4–5 days |
