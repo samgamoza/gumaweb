@@ -96,6 +96,27 @@ class WebsiteGenerationWorkflow:
         self.validate(website)
         self.db.flush()
 
+    def rewrite_template_sections(self, website: Website, keys: set[str]) -> list[str]:
+        """Rewrite these sections from current business facts, but only where the copy is still the generator's
+        (template or AI): anything a customer or operator wrote is kept. Returns the keys rewritten."""
+        business = website.business
+        profile = self.profiles.ensure(business)
+        rows = self.websites.content_map(website.id)
+        targets = {k for k in keys if k in rows and rows[k].source in (ContentSource.TEMPLATE, ContentSource.AI)}
+        if not targets:
+            return []
+        ctx = ContentContext(
+            name=business.name, industry=profile.industry, city=business.city, province=business.province,
+            address=business.address, phone=business.phone, email=business.email, facebook=business.facebook,
+            services=list(profile.services), target_audience=profile.target_audience, brand_tone=profile.brand_tone,
+        )
+        for key, block in TemplateContentGenerator().blocks(ctx, targets).items():
+            kept = {k: rows[key].content[k] for k in ("image", "images") if k in (rows[key].content or {})}
+            rows[key].content = {**block, **kept}  # pictures stay: they aren't facts
+            rows[key].source = ContentSource.TEMPLATE
+        self.db.flush()
+        return sorted(targets)
+
     def _fill_missing_content(self, website: Website, business: Business, profile: BusinessProfile) -> None:
         """Sections added by a feature toggle (e.g. booking) get template copy; existing content is untouched."""
         missing = content_keys(website.blueprint or {}) - self.websites.content_map(website.id).keys()

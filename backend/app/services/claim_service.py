@@ -10,7 +10,7 @@ import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
@@ -32,7 +32,7 @@ from app.domains.customers.enums import UserRole
 from app.domains.outreach.enums import MessageStatus, OutreachEventType
 from app.domains.sales import ActivityType
 from app.domains.website_factory.enums import WebsiteStatus
-from app.models import Claim, Customer, OutreachEvent, OutreachMessage, Subscription, User, Website
+from app.models import Claim, ClaimLink, Customer, OutreachEvent, OutreachMessage, Subscription, User, Website
 from app.repositories.repositories import (
     ClaimRepository,
     CustomerRepository,
@@ -50,6 +50,11 @@ from app.services.support import Actor, EventType, audit, record_event
 
 logger = logging.getLogger("gumaweb.claims")
 
+# A private draft (owner-triggered publishing, A7) can be claimed from its claim link while in these states.
+CLAIMABLE_DRAFT_STATES = (WebsiteStatus.BLUEPRINT_READY, WebsiteStatus.BUILT)
+# At ownership transfer these are published (a private draft goes live at claim; a live site drops its banner).
+PUBLISH_AT_CLAIM_STATES = (WebsiteStatus.PUBLISHED, *CLAIMABLE_DRAFT_STATES)
+
 
 class ClaimService:
     def __init__(self, db: Session, settings: Settings) -> None:
@@ -62,9 +67,11 @@ class ClaimService:
         self.outreach = OutreachRepository(db)
 
     # --- Start ----------------------------------------------------------------------
-    def start(self, data: ClaimStart, actor: Actor) -> Claim:
+    def start(self, data: ClaimStart, actor: Actor, *, from_link: bool = False) -> Claim:
+        """`from_link`: started from a private claim link (A7), which alone may claim a private draft."""
         website = self.websites.by_subdomain(data.subdomain)
-        if website is None or website.status != WebsiteStatus.PUBLISHED:
+        private_draft = from_link and website is not None and website.status in CLAIMABLE_DRAFT_STATES
+        if website is None or (website.status != WebsiteStatus.PUBLISHED and not private_draft):
             raise NotFoundError("Website not found")
         if website.is_claimed or self.claims.approved_for_business(website.business_id):
             raise ConflictError("This website has already been claimed", code="already_claimed")
@@ -84,6 +91,7 @@ class ClaimService:
                 business_phone=business.phone, business_website=business.website,
                 recent_claims_from_ip=(self.claims.count_from_ip_since(actor.ip, since) + 1) if actor.ip else 1,
                 competing_active_claims=len([c for c in active if c.claimant_email != email]),
+                private_draft=private_draft,
             )
         )
         claim = existing or Claim(business_id=business.id, website_id=website.id, claimant_email=email)
@@ -248,6 +256,7 @@ class ClaimService:
                    OutreachMessage.status == MessageStatus.SCHEDULED)
             .values(status=MessageStatus.SKIPPED, error="claimed")
         )
+        self._apply_owner_answers(business, website)
         self._attribute(business.id, OutreachEventType.CLAIM_COMPLETED, None)
         ProspectService(self.db).record(business.id, ActivityType.CLAIM_APPROVED,
                                         external_id=f"claim:{claim.id}:approved",
@@ -258,12 +267,33 @@ class ClaimService:
 
         if website is not None:
             website.is_claimed = True
-            if website.status == WebsiteStatus.PUBLISHED:
-                try:  # republish without the claim banner; a failure must not undo the claim
+            if website.status in PUBLISH_AT_CLAIM_STATES:
+                # A private draft goes live now (publish at claim); a live site is rebuilt without the claim
+                # banner. A failure must not undo the claim: the site can be published again from the admin.
+                try:  # (publish records a failed deployment itself)
                     PublishingService(self.db, self.settings).publish(website, actor, force=True)
                 except Exception:
-                    logger.exception("republish after claim failed for %s", website.subdomain)
+                    logger.exception("publish at claim failed for %s", website.subdomain)
         self.db.commit()
+
+    def _apply_owner_answers(self, business, website: Website | None) -> None:
+        """Contact details the owner entered on the claim-link form wait until ownership is proven (they are what
+        verification relies on); apply the latest ones now."""
+        link = self.db.scalar(
+            select(ClaimLink).where(ClaimLink.business_id == business.id, ClaimLink.form_started_at.is_not(None))
+            .order_by(ClaimLink.form_started_at.desc()).limit(1))
+        pending = {k: v for k, v in ((link.answers or {}).get("pending") or {}).items() if v} if link else {}
+        if not pending:
+            return
+        for field, value in pending.items():
+            setattr(business, field, value)
+        if website is not None:
+            from app.workflows.website_generation import WebsiteGenerationWorkflow  # local: heavy import
+
+            contact = self.websites.content_map(website.id).get("contact")
+            if contact:
+                contact.content = {**contact.content, **pending}
+            WebsiteGenerationWorkflow(self.db, self.settings).refresh_business_facts(website)
 
     def _attribute(self, business_id: uuid.UUID, event_type: OutreachEventType, ref: str | None) -> None:
         """Attribute claim funnel events to the outreach message that drove them."""

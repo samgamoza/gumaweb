@@ -25,6 +25,9 @@ class RiskInput:
     business_website: str | None
     recent_claims_from_ip: int
     competing_active_claims: int
+    # A7: claimed from a private claim link, so the site isn't public yet. Publishing at claim needs proof on the
+    # verified channel: the email (or, by SMS, the phone) on record; anyone else goes to manual review.
+    private_draft: bool = False
 
 
 @dataclass
@@ -60,6 +63,14 @@ def assess_claim_risk(data: RiskInput) -> RiskAssessment:
         add(25, "another claim for this business is in progress")
     if data.method == VerificationMethod.BUSINESS_IDENTITY:
         add(30, "document-based verification requires human review")
+    if data.private_draft:
+        verified_on_record = (
+            data.claimant_phone is not None and data.claimant_phone == data.business_phone
+            if data.method == VerificationMethod.SMS
+            else bool(data.business_email) and data.claimant_email == data.business_email
+        )
+        if not verified_on_record:
+            add(40, "private draft claimed without the contact on record")
 
     return RiskAssessment(score=max(0, min(100, score)), factors=factors)
 

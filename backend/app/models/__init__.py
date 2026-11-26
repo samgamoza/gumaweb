@@ -10,7 +10,7 @@ from app.models.automation import (
     WebhookEndpoint,
 )
 from app.models.business import Business, BusinessContact, BusinessProfile, DiscoveryCampaign, DiscoveryRun
-from app.models.claim import Claim
+from app.models.claim import Claim, ClaimLink
 from app.models.customer import Customer, Lead, Plan, Subscription
 from app.models.engagement import (
     Appointment,
@@ -64,6 +64,7 @@ __all__ = [
     "BusinessContact",
     "BusinessProfile",
     "Claim",
+    "ClaimLink",
     "Customer",
     "Deployment",
     "DiscoveryCampaign",

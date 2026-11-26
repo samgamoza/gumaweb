@@ -1,6 +1,7 @@
 # Outbound onboarding engine — development plan
 
-Status: **in progress** (2026-11-26). C1, A1 and A2 built; A3–A8 planned. Revised on 2026-11-26: AI agent layer
+Status: **in progress** (2026-11-26). C1, A1, A2 and A7a (private claim link + publish at claim) built; the rest
+planned. Revised on 2026-11-26: AI agent layer
 added, and **owner-triggered publishing** adopted (§1.1).
 Replaces the earlier "sales CRM" plan, which centred on screens where people move prospects by hand. The founder's
 direction: an **automated** engine, with people stepping in only where they lift conversion.
@@ -112,7 +113,7 @@ As built:
 * Emails go out as outreach messages of the playbook's own campaign, so tracking, unsubscribe, the timeline and
   stage moves all work unchanged.
 * SMS steps are skipped (`sms_unavailable`) until a gateway and phone opt-outs exist (E2 / A4).
-* Until A7 ships the private claim link, only prospects with a published, unclaimed site are enrolled; drafts wait.
+* Drafts are enrolled too since A7a: their emails carry a private claim link instead of a public URL.
 * API: `GET /pipeline/playbooks` (with per-step sent/skipped/failed), `PATCH /pipeline/playbooks/{id}` (admin),
   `GET /pipeline/tasks`.
 
@@ -130,6 +131,31 @@ Planned (original design):
   humans (A4); AI calls later.
 
 ### A7 — onboarding funnel (owner-triggered publishing) + claim assistant
+
+**A7a — built:** private claim link, draft preview, details form, publish at claim.
+* `claim_links` (migration 0014): one per outreach email to a draft, valid `CLAIM_LINK_TTL_DAYS` (21); only the
+  token's hash is stored. The engine now enrolls private drafts (`blueprint_ready`/`built`) as well as live sites.
+* `/start/<token>` (frontend) shows the draft in a frame next to the form. API under `/public/start/{token}`:
+  * `GET` opens it: the first open records the email's `link_clicked` (stats, timeline, playbook);
+  * `GET …/site/{path}` serves the draft rendered on request (cached by content), never written to public
+    storage; `noindex`, `no-referrer`, `no-store`, framable by the frontend origin only;
+  * `PATCH …/details`: name, description, address, Facebook page and services update the draft at once (the new
+    name replaces the old one throughout the copy; template copy that lists services is rewritten). The first
+    answer records `claim_started`, so the playbook's abandoned-claim follow-up applies;
+  * `POST …/claim` starts a normal claim (email link or SMS code).
+* Phone and email answers show on the draft but wait on the link until ownership is proven, then apply at transfer:
+  they are what verification relies on.
+* A claim from a link that verifies with the email on record (or, by SMS, the phone on record) is approved and the
+  site **publishes at claim**. Anyone else, such as someone the email was forwarded to, gets +40 risk and goes to
+  manual review; approval then publishes. Drafts can't be claimed through the public `/claim/<subdomain>` page.
+
+Still to come:
+* **A7b:** polish pass before outreach, preview images (headless browser, desktop + phone) in the email, HTML email
+  with a text fallback.
+* **A7c:** claim assistant (below).
+* Hours and logo/photo upload on the form.
+
+Planned (original design):
 * **Polish + preview:** polish pass on each draft before outreach; a headless browser in the worker captures a
   desktop and a phone preview image, served from an unguessable, non-indexed URL.
 * **Private claim link** (`/start/<token>`, per prospect, expiring, renewed by later emails) opens the full draft
